@@ -41,6 +41,7 @@ export interface FriendListPageInfo<T> {
 }
 
 export interface AppInitialState {
+  isUploadingFile: boolean;
   activeUI: ActiveUI;
   sidebarOpen: boolean;
   showChannelDetails: boolean;

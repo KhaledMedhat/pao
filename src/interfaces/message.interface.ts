@@ -48,10 +48,13 @@ export interface UpdateMessageBody {
 }
 
 export interface Attachment {
-  type: string;
   url: string;
+  type: string;
   name: string;
   size: number;
+  duration?: number;
+  key?: string;
+  isUploading?: boolean;
 }
 
 export interface ReactionInterface {

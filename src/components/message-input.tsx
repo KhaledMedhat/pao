@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -15,7 +15,7 @@ import { Button } from "./ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "./ui/popover";
 import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { useSendMessageMutation, useUpdateMessageMutation } from "~/redux/apis/channel.api";
-import { MessageType } from "~/interfaces/message.interface";
+import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import { useSocket } from "~/hooks/use-socket";
@@ -23,8 +23,11 @@ import { socketService } from "~/lib/socket";
 import { selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
 import { setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
 import Link from "next/link";
-import { RecordingState } from "~/interfaces/app.interface";
+import { ConfigPrefix, RecordingState } from "~/interfaces/app.interface";
+import useUpload from "~/hooks/use-upload";
+import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface MentionListProps {
   items: FriendInterface[];
@@ -123,9 +126,11 @@ interface MessageInputProps {
   isEditing: boolean;
   messageId?: string;
   setIsEditing?: (isEditing: boolean) => void;
+  onAddPendingMessage?: (message: JSONContent, attachments: Attachment[], type: MessageType, replyMessageId?: MessageInterface) => string;
+  onRemovePendingMessage?: (pendingId: string) => void;
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggestions = [], disabled = false, className, channelId, value, isEditing, messageId, setIsEditing }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggestions = [], disabled = false, className, channelId, value, isEditing, messageId, setIsEditing, onAddPendingMessage, onRemovePendingMessage }) => {
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const dispatch = useAppDispatch();
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -142,6 +147,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
   const [recordingState, setRecordingState] = useState<RecordingState>("idle")
   const [duration, setDuration] = useState(0)
   const [waveformWidth, setWaveformWidth] = useState(0)
+
+  // Attachments state
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { startUpload } = useUpload(ConfigPrefix.CHAT_INPUT_UPLOADER)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -198,6 +209,71 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
+
+  // Create preview URLs for attachments
+  const previewUrls = useMemo(() => {
+    return attachments.map(file => URL.createObjectURL(file))
+  }, [attachments])
+
+  // Cleanup preview URLs when they change
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [previewUrls])
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only set dragging to false if we're leaving the container (not entering a child)
+    if (e.currentTarget === e.target) {
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    const imageFiles = files.filter(file => file.type.startsWith("image/"))
+
+    if (imageFiles.length > 0) {
+      setAttachments(prev => [...prev, ...imageFiles])
+    }
+  }, [])
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const imageFiles = files.filter(file => file.type.startsWith("image/"))
+
+    if (imageFiles.length > 0) {
+      setAttachments(prev => [...prev, ...imageFiles])
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }, [])
+
+  const removeAttachment = useCallback((index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
   const startVisualizer = useCallback(() => {
     const analyser = analyserRef.current
     if (!analyser) return
@@ -325,15 +401,45 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     setWaveformBars([])
   }, [stopTimer, stopVisualizer])
 
+
   const sendRecording = useCallback(() => {
     const mediaRecorder = mediaRecorderRef.current
     if (mediaRecorder) {
       const currentDuration = duration
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-        // onSendAudio?.(blob, currentDuration)
-        console.log({ blob, currentDuration })
+
+        // Convert blob to File for upload
+        const audioFile = new File([blob], `voice-${Date.now()}.webm`, { type: "audio/webm" })
+
+        // Upload the audio file to get a permanent URL
+        const uploadResult = await startUpload([audioFile])
+
+        if (uploadResult && uploadResult.length > 0) {
+          const uploadedFile = uploadResult[0]
+          const attachment: Attachment = {
+            type: "audio",
+            url: uploadedFile.ufsUrl,
+            name: uploadedFile.name,
+            size: uploadedFile.size,
+            duration: currentDuration,
+            key: uploadedFile.key,
+          }
+
+          await sendMessage({
+            referenceId: channelId,
+            message: {
+              type: "doc", content: [
+                { type: "paragraph", content: [{ type: "text", text: "" }] },
+              ]
+            },
+            sentBy: currentUserInfo._id,
+            type: MessageType.TEXT,
+            attachment: [attachment],
+          })
+        }
+
         audioChunksRef.current = []
       }
 
@@ -350,7 +456,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     setDuration(0)
     waveformBarsRef.current = []
     setWaveformBars([])
-  }, [duration, stopTimer, stopVisualizer])
+  }, [duration, startUpload, channelId, currentUserInfo._id, sendMessage, stopTimer, stopVisualizer])
+
 
   const editor = useEditor({
     onUpdate: async ({ editor }) => {
@@ -456,9 +563,56 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
   }, [editor]);
 
   const handleSend = useCallback(async () => {
-    if (!editor || editor.isEmpty) return;
-    const json = editor.getJSON();
-    editor.commands.clearContent();
+    const hasContent = editor && !editor.isEmpty;
+    const hasAttachments = attachments.length > 0;
+
+    if (!hasContent && !hasAttachments) return;
+
+    const json = hasContent ? editor.getJSON() : { type: "doc", content: [] };
+
+    // Clear input and attachments immediately (before upload)
+    if (hasContent) {
+      editor.commands.clearContent();
+    }
+    const filesToUpload = [...attachments];
+    setAttachments([]);
+
+    // Determine message type
+    const msgType = (isReplying && replyingToMessage) ? MessageType.REPLY : MessageType.TEXT;
+
+    // Create pending message with uploading attachments (for optimistic UI)
+    let pendingId: string | undefined;
+    if (hasAttachments && onAddPendingMessage) {
+      const pendingAttachments: Attachment[] = filesToUpload.map(file => ({
+        url: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        isUploading: true,
+      }));
+      pendingId = onAddPendingMessage(json, pendingAttachments, msgType, replyingToMessage ?? undefined);
+    }
+
+    // Upload attachments in background
+    let uploadedFiles: { url: string; name: string; size: number; type: string }[] = [];
+    if (hasAttachments) {
+      const uploadResult = await startUpload(filesToUpload);
+      if (uploadResult) {
+        uploadedFiles = uploadResult.map(file => ({
+          url: file.ufsUrl,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          key: file.key,
+        }));
+      }
+    }
+
+    // Remove pending message after upload (real message will arrive via websocket)
+    if (pendingId && onRemovePendingMessage) {
+      onRemovePendingMessage(pendingId);
+    }
+
     if (isEditing && messageId) {
       setIsEditing?.(false);
       await updateMessage({
@@ -474,6 +628,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
         sentBy: currentUserInfo._id,
         type: MessageType.REPLY,
         replyMessageId: replyingToMessage._id,
+        attachment: uploadedFiles.length > 0 ? uploadedFiles : undefined,
       });
     } else {
       await sendMessage({
@@ -481,14 +636,44 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
         message: json,
         sentBy: currentUserInfo._id,
         type: MessageType.TEXT,
+        attachment: uploadedFiles.length > 0 ? uploadedFiles : undefined,
       });
     }
-  }, [editor]);
+  }, [editor, attachments, startUpload, isEditing, messageId, setIsEditing, updateMessage, channelId, isReplying, replyingToMessage, dispatch, sendMessage, currentUserInfo._id, onAddPendingMessage, onRemovePendingMessage]);
 
   return (
     <Popover open={mentionOpen}>
       <PopoverAnchor asChild>
-        <div className="w-full flex flex-col ">
+        <div
+          className={cn(
+            "w-full flex flex-col relative transition-colors",
+            isDragging && "ring-2 ring-primary ring-dashed rounded-lg bg-primary/5"
+          )}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none">
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <IconFileUploadFilled size={32} />
+                <span className="text-sm font-medium">Drop images here</span>
+              </div>
+            </div>
+          )}
+
           {isReplying && replyingToMessage && (
             <Link href={`#${replyingToMessage._id}`} className="bg-main-primary rounded-md rounded-b-none p-3 flex items-center justify-between">
               <p className="text-sm">Replying to <span className="font-semibold">{replyingToMessage.sentBy?.displayName}</span></p>
@@ -500,12 +685,54 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
               </Button>
             </Link>
           )}
+
+          {/* Attachments preview */}
+          {attachments.length > 0 && (
+            <div className={cn(
+              "bg-main-primary p-3 flex gap-2 flex-wrap",
+              isReplying && replyingToMessage ? "" : "rounded-t-md"
+            )}>
+              {attachments.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="relative group">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted">
+                    <Image
+                      src={previewUrls[index]}
+                      alt={file.name}
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="icon-xs"
+                          type="button"
+                          className="absolute -top-1.5 -right-1.5 size-5 rounded-full"
+                          onClick={() => removeAttachment(index)}
+                        >
+                          <IconX size={12} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Remove attachment
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ))}
+            </div>
+          )}
+
           <InputGroup
             ref={containerRef}
             className={cn(
               "h-auto min-h-[62px] transition-all bg-main-primary px-2",
-              isFocused && "border ring-ring/50 ring-[1px]",
-              isReplying && replyingToMessage ? "rounded-t-none" : "",
+              isFocused && !((isReplying && replyingToMessage) || attachments.length > 0) && "border ring-ring/50 ring-[1px]",
+              (isReplying && replyingToMessage) || attachments.length > 0 ? "rounded-t-none" : "",
               disabled && "opacity-50 pointer-events-none",
               className
             )}
@@ -606,7 +833,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
                       </InputGroupButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="top">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
                         <IconFileUploadFilled />
                         Upload a File
                       </DropdownMenuItem>
@@ -614,10 +841,18 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
                   </DropdownMenu>
                 </InputGroupAddon>}
                 <InputGroupAddon align="inline-end" className="gap-0 self-center">
-                  {!value && <InputGroupButton variant="ghost" size="icon-sm" className="rounded-full" type="button">
-                    <IconPaperclip className="size-4" />
-                    <span className="sr-only">Attach file</span>
-                  </InputGroupButton>}
+                  {!value && (
+                    <InputGroupButton
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-full"
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <IconPaperclip className="size-4" />
+                      <span className="sr-only">Attach file</span>
+                    </InputGroupButton>
+                  )}
                   {!value && <InputGroupButton variant="ghost" size="icon-sm" type="button" onClick={startRecording}>
                     <IconMicrophoneFilled size={22} />
                     <span className="sr-only">Record audio</span>

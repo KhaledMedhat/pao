@@ -44,7 +44,7 @@ export default function SignupPage() {
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [createAccount, { isLoading: isCreatingAccount }] = useCreateAccountMutation();
-  const { startUpload } = useUpload(setIsUploadingLoading, ConfigPrefix.SINGLE_IMAGE_UPLOADER);
+  const { startUpload } = useUpload(ConfigPrefix.SINGLE_IMAGE_UPLOADER, setIsUploadingLoading);
   const router = useRouter();
 
   const step1Form = useForm<SignupStep1Values>({

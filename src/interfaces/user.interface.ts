@@ -3,8 +3,12 @@ import { Channel } from "./channels.interface";
 export type activityType = "" | "voice" | "streaming" | "video";
 export type FriendInterface = Omit<
   User,
-  "provider" | "inbox" | "email" | "password" | "firstName" | "lastName" | "googleId" | "updatedAt" | "channelSlug" | "latestStatus"
+  "-provider" | "-inbox" | "-email" | "-password" | "-firstName" | "-lastName" | "-googleId" | "-updatedAt" | "-channelSlug" | "-latestStatus"
 >;
+
+/** Like FriendInterface but with friends as an array of IDs (string[]), e.g. from API when friends are not populated */
+export type FriendInterfaceWithFriendIds = Omit<FriendInterface, "friends"> & { friends: string[] };
+
 export interface User {
   _id: string;
   firstName: string;

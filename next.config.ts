@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   images: {
+    domains: ["lh3.googleusercontent.com"],
     remotePatterns: [
       {
         protocol: "https",

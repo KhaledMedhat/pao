@@ -98,7 +98,7 @@ const ChannelSharedContextMenu: React.FC<{ channel: Channel; children: React.Rea
         <ContextMenuContent className="w-fit">{renderContextMenuItems()}</ContextMenuContent>
       </ContextMenu>
       <Dialog open={isOtherMemberDetailsDialogOpen} onOpenChange={setIsOtherMemberDetailsDialogOpen}>
-        <DialogContent showCloseButton={false} className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">
+        <DialogContent className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">
           <VisuallyHidden.Root>
             <DialogHeader>
               <DialogTitle></DialogTitle>

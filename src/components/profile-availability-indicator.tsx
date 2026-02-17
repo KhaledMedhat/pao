@@ -10,7 +10,8 @@ const avatarVariants = cva("relative inline-block", {
       default: "size-10",
       md: "size-8",
       sm: "size-6.5",
-      lg: "size-30",
+      lg: "size-20",
+      xl: "size-30",
     },
   },
   defaultVariants: {
@@ -24,7 +25,8 @@ const indicatorVariants = cva("absolute bottom-0 -right-1 rounded-full border-2 
       default: "size-4.5",
       md: "size-4",
       sm: "size-3.5",
-      lg: "size-10",
+      lg: "size-6 right-0 bottom-1",
+      xl: "size-10",
     },
   },
   defaultVariants: {
@@ -38,7 +40,8 @@ const statusBadgeVariants = cva("", {
       default: "size-5",
       md: "size-3.5",
       sm: "size-3.5",
-      lg: "size-10",
+      lg: "size-6",
+      xl: "size-10",
     },
   },
   defaultVariants: {
@@ -46,7 +49,7 @@ const statusBadgeVariants = cva("", {
   },
 });
 
-function StatusBadge({ status, size }: { status: StatusType; size: "default" | "sm" | "lg" | "md" }) {
+function StatusBadge({ status, size }: { status: StatusType; size: "default" | "sm" | "lg" | "md" | "xl" }) {
   switch (status) {
     case StatusType.Online:
       return <span className={indicatorVariants({ size, className: "bg-green-500" })} />;
@@ -74,7 +77,7 @@ const ProfileAvailabilityIndicator: React.FC<{
   status?: StatusType;
   imageUrl: string;
   name: string;
-  size: "default" | "sm" | "lg" | "md";
+  size: "default" | "sm" | "lg" | "md" | "xl";
 }> = ({ className, status, imageUrl, name, size }) => {
   return (
     <div className={cn("relative inline-block", className)}>

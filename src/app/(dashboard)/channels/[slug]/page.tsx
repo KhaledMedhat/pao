@@ -163,7 +163,7 @@ export default function ChannelsPage() {
           onSearch: setSearch,
         };
       default:
-        return { status: "", count: 0, items: [], showStatus: false, requestIds: [], onSearch: () => {} };
+        return { status: "", count: 0, items: [], showStatus: false, requestIds: [], onSearch: () => { } };
     }
   }, [friendsHeaderActiveUI, onlineFriends, currentUserInfo.friends, pendingRequests, search]);
 

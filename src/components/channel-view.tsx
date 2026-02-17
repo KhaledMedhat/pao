@@ -2,22 +2,30 @@
 
 import { useAppSelector } from "~/redux/hooks";
 import { selectCurrentChannel, selectIsReplying, selectReplyingToMessage, selectShowChannelDetails } from "~/redux/slices/app/app-selector";
+import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import MessageInput from "./message-input";
 import { ChannelType } from "~/interfaces/channels.interface";
+import { FriendInterface } from "~/interfaces/user.interface";
 import { ScrollArea } from "./ui/scroll-area";
 import Message from "./message";
-import { MessageInterface, MessageType } from "~/interfaces/message.interface";
+import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { Button } from "./ui/button";
-import { IconChevronDown } from "@tabler/icons-react";
+import { IconChevronDown, IconCrown } from "@tabler/icons-react";
 import { MessageSkeletonList, LoadingMoreSkeleton } from "./message-skeleton";
 import { useScrollContext } from "~/contexts/scroll-context";
+import { JSONContent } from "@tiptap/react";
+import UserDetails from "./user-details";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Avatar, AvatarImage, AvatarFallback, AvatarBadge } from "./ui/avatar";
+import { getInitialsFallback } from "~/lib/utils";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
   const showChannelDetails = useAppSelector(selectShowChannelDetails);
+  const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const { messages, isLoading, isLoadingMore, hasMore, loadMoreMessages, isSomeoneTyping } = useChannelMessages(channelId);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState<boolean>(false);
@@ -26,6 +34,48 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const prevScrollHeightRef = useRef<number>(0);
   const isReplying = useAppSelector(selectIsReplying);
   const replyingToMessage = useAppSelector(selectReplyingToMessage);
+
+  const inputPlaceholder = useMemo(() => {
+    if (currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember) {
+      return `Message @${currentChannel.directChannelOtherMember.displayName}`;
+    }
+    if (currentChannel?.type === ChannelType.Group) {
+      return `Message @${currentChannel.groupOrServerName}`;
+    }
+    return "Message";
+  }, [currentChannel]);
+
+  // Pending messages for optimistic UI (shown while attachments are uploading)
+  const [pendingMessages, setPendingMessages] = useState<MessageInterface[]>([]);
+
+  // Create a pending message with uploading attachments
+  const addPendingMessage = useCallback((message: JSONContent, attachments: Attachment[], type: MessageType, replyMessageId?: MessageInterface) => {
+    const pendingId = `pending-${Date.now()}`;
+    const pendingMessage: MessageInterface = {
+      _id: pendingId,
+      referenceId: channelId,
+      message,
+      attachment: attachments.map(att => ({ ...att, isUploading: true })),
+      sentBy: currentUserInfo as FriendInterface,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      reactions: [],
+      type,
+      replyMessageId,
+    };
+    setPendingMessages(prev => [...prev, pendingMessage]);
+    return pendingId;
+  }, [channelId, currentUserInfo]);
+
+  // Remove a pending message (called when real message arrives)
+  const removePendingMessage = useCallback((pendingId: string) => {
+    setPendingMessages(prev => prev.filter(msg => msg._id !== pendingId));
+  }, []);
+
+  // Combined messages including pending ones
+  const allMessages = useMemo(() => {
+    return [...messages, ...pendingMessages];
+  }, [messages, pendingMessages]);
   // Sync local ref with global context
   useEffect(() => {
     if (scrollViewportRef.current) {
@@ -145,11 +195,41 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   });
 
   // Memoize processed messages to avoid recalculating on every render
-  const processedMessages = useMemo(() => processMessages(messages || []), [messages]);
+  const processedMessages = useMemo(() => processMessages(allMessages || []), [allMessages]);
 
   return (
     <section className="flex-1 flex flex-row-reverse h-full min-h-0 overflow-hidden pb-2 pt-2 gap-1">
-      {showChannelDetails && <aside className="h-full bg-main-primary w-1/3 rounded-md p-4 shrink-0">Friends Online</aside>}
+      {showChannelDetails &&
+        <aside className="h-full bg-main-primary w-1/3 rounded-md shrink-0">
+          {currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember && <UserDetails user={currentChannel?.directChannelOtherMember || currentUserInfo} size="md" />}
+
+          {currentChannel?.type === ChannelType.Group &&
+            <div className="w-full h-full p-4 flex flex-col gap-4">
+              <p className="text-sm font-semibold text-muted-foreground">Members &#8212; {currentChannel?.members.length}</p>
+              <div className="flex flex-col gap-2">
+                {currentChannel?.members.map((member) => (
+                  <Popover key={member._id}>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-start h-11">
+                        <Avatar className="size-8">
+                          <AvatarImage src={member.profilePicture} />
+                          <AvatarFallback>{getInitialsFallback(member.displayName)}</AvatarFallback>
+                          <AvatarBadge className="size-2!" variant={member.status.type} />
+                        </Avatar>
+                        {member.displayName}
+                        {currentChannel.createdBy === member._id && <IconCrown size={16} color="gold" />}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
+                      <UserDetails user={member} size="sm" />
+                    </PopoverContent>
+                  </Popover>
+                ))}
+              </div>
+            </div>
+          }
+        </aside>
+      }
       <div className="relative flex flex-col w-full h-full min-w-0">
         {/* Messages area - scrollable */}
         <ScrollArea className="h-[calc(100vh-100px)]" onScroll={handleScroll} viewportRef={scrollViewportRef}>
@@ -191,7 +271,6 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                         onHover={handleMessageHover}
                         onLeave={handleMessageLeave}
                         channel={currentChannel || undefined}
-                        otherUsers={currentChannel?.members}
                         onScrollToMessage={scrollToMessage}
                       />
                     )}
@@ -212,12 +291,14 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
           <MessageInput
             channelId={channelId}
             isEditing={false}
-            placeholder={`Message @${currentChannel?.directChannelOtherMember?.displayName}`}
+            placeholder={inputPlaceholder}
             mentionSuggestions={
               currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember
                 ? [currentChannel.directChannelOtherMember]
                 : currentChannel?.members
             }
+            onAddPendingMessage={addPendingMessage}
+            onRemovePendingMessage={removePendingMessage}
           />
         </div>
         {/* Scroll to bottom button */}

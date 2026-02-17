@@ -51,7 +51,6 @@ import { formatDate, getChannelTypeLabel, getInitialsFallback } from "~/lib/util
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import Link from "next/link";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollContext } from "~/contexts/scroll-context";
@@ -68,7 +67,7 @@ const DashboardHeader = () => {
 
   const [updateChannel, { isLoading: isUpdatingChannel }] = useUpdateChannelMutation();
   const [unpinMessage] = useUnpinMessageMutation();
-  const { startUpload } = useUpload(setIsUploadingLoading, ConfigPrefix.SINGLE_IMAGE_UPLOADER);
+  const { startUpload } = useUpload(ConfigPrefix.SINGLE_IMAGE_UPLOADER, setIsUploadingLoading);
   const activeUI = useAppSelector(selectActiveUI);
   const dashboardFriendsHeaderActiveUI = useAppSelector(selectDashboardFriendsHeaderActiveUI);
   const dashboardMessageRequestsHeaderActiveUI = useAppSelector(selectDashboardMessageRequestsHeaderActiveUI);

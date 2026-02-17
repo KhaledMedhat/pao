@@ -1,10 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
 import { useCallback } from "react";
 import { Area } from "react-easy-crop";
+import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 import { getCookie } from "~/app/actions";
 import { Channel, ChannelType } from "~/interfaces/channels.interface";
-import { FriendInterface, User } from "~/interfaces/user.interface";
+import { FriendInterface, FriendInterfaceWithFriendIds, User } from "~/interfaces/user.interface";
 import { setUserLoggingInStatus } from "~/redux/slices/user/user-slice";
 import { store } from "~/redux/store";
 
@@ -114,8 +115,8 @@ export function extractDirectChannelFromMembers(currentUserId: string, currentCh
  * @param friend - The friend
  * @returns The mutual friends of the current user and the friend
  */
-export function getMutualFriends(currentUser: User, friend: FriendInterface) {
-  return currentUser.friends.filter((f) => friend.friends.some((f2) => f2._id === f._id));
+export function getMutualFriends(currentUser: User, friend: FriendInterfaceWithFriendIds) {
+  return currentUser.friends.filter((f) => friend.friends.some((f2) => f2 === f._id));
 }
 
 /**
@@ -306,3 +307,84 @@ export const scrollToMessage = (
     window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
 };
+
+
+/**
+ * Handle copying text to clipboard
+ * @param text - The text to copy
+ */
+export const handleCopy = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  } catch {
+    toast.error("Failed to copy");
+  }
+};
+
+
+/**
+ * Download a file from a URL
+ * @param url - The URL of the file to download
+ * @param filename - The filename of the file to download
+ */
+export async function downloadFile(url: string, filename?: string) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    // Create a temporary link element
+    const link = document.createElement("a");
+    link.href = blobUrl;
+
+    // Set the download filename
+    if (filename) {
+      link.download = filename;
+    } else {
+      // Try to get filename from Content-Disposition header
+      const contentDisposition = response.headers.get("content-disposition");
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          link.download = filenameMatch[1].replace(/['"]/g, "");
+        }
+      } else {
+        // Extract filename from URL if no Content-Disposition
+        link.download = url.substring(url.lastIndexOf("/") + 1);
+      }
+    }
+
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    throw error;
+  }
+}
+
+
+/**
+ * Format bytes to a human readable format
+ * @param bytes - The bytes to format
+ * @param decimals - The number of decimals to show
+ * @returns The formatted bytes
+ */
+export const formatBytes = (bytes: number, decimals = 2): string => {
+  if (bytes === 0) return "0 Bytes"
+
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + sizes[i]
+}

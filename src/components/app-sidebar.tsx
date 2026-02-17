@@ -87,7 +87,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [searchUsers, { data: usersQuery }] = useSearchUsersMutation();
   const [leaveGroupChannel, { isLoading: isLeavingGroupChannelLoading }] = useLeaveGroupChannelMutation();
   const [leavingGroupChannelId, setLeavingGroupChannelId] = useState<string | null>(null);
-  const { startUpload } = useUpload(setIsUploadingLoading, ConfigPrefix.SINGLE_IMAGE_UPLOADER);
+  const { startUpload } = useUpload(ConfigPrefix.SINGLE_IMAGE_UPLOADER, setIsUploadingLoading);
 
   const secondSidebarButtons = [
     {
@@ -429,9 +429,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                               </Button>
                             )}
                             <div
-                              className={`w-28 h-28 rounded-full border-2 border-dashed border-border flex items-center justify-center overflow-hidden transition-all group-hover:border-accent ${
-                                profileImageUrl ? "border-solid border-accent" : ""
-                              }`}
+                              className={`w-28 h-28 rounded-full border-2 border-dashed border-border flex items-center justify-center overflow-hidden transition-all group-hover:border-accent ${profileImageUrl ? "border-solid border-accent" : ""
+                                }`}
                             >
                               {profileImageUrl ? (
                                 <img src={profileImageUrl || "/placeholder.svg"} alt="Profile" className="w-full h-full object-cover" />
@@ -557,7 +556,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <Button variant="secondary">Find or start a conversation</Button>
                   </SidebarMenuButton>
                 </DialogTrigger>
-                <DialogContent showCloseButton={false} className="sm:max-w-[425px] max-w-2xl!">
+                <DialogContent className="sm:max-w-[425px] max-w-2xl!">
                   <DialogHeader>
                     <DialogTitle>
                       <Input

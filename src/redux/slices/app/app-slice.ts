@@ -3,6 +3,7 @@ import { ActiveUI, AppInitialState, FriendsView, MessageRequestsView } from "~/i
 import { MessageInterface } from "~/interfaces/message.interface";
 
 const initialState: AppInitialState = {
+  isUploadingFile: false,
   activeUI: ActiveUI.FRIENDS_LIST,
   sidebarOpen: false,
   showChannelDetails: false,
@@ -18,6 +19,9 @@ export const appSlice = createSlice({
   name: "app",
   initialState,
   reducers: {
+    setIsUploadingFile: (state, action: PayloadAction<boolean>) => {
+      state.isUploadingFile = action.payload;
+    },
     setActiveUI: (state, action: PayloadAction<ActiveUI>) => {
       state.activeUI = action.payload;
     },
@@ -49,6 +53,7 @@ export const appSlice = createSlice({
 });
 
 export const {
+  setIsUploadingFile,
   setActiveUI,
   setSidebarOpen,
   setDashboardFriendsHeaderActiveUI,

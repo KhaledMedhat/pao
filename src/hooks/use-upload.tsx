@@ -2,17 +2,17 @@ import { toast } from "sonner";
 import { ConfigPrefix } from "~/interfaces/app.interface";
 import { useUploadThing } from "~/lib/uploadthing";
 
-const useUpload = (setIsUploadingLoading: (isUploading: boolean) => void, configPrefix: ConfigPrefix) => {
+const useUpload = (configPrefix: ConfigPrefix, setIsUploadingLoading?: (isUploading: boolean) => void,) => {
   const { startUpload, routeConfig } = useUploadThing(configPrefix, {
     onClientUploadComplete: () => {
-      setIsUploadingLoading(false);
+      setIsUploadingLoading?.(false);
     },
     onUploadError: (error: Error) => {
-      setIsUploadingLoading(false);
+      setIsUploadingLoading?.(false);
       toast.error(error.message);
     },
     onUploadBegin: () => {
-      setIsUploadingLoading(true);
+      setIsUploadingLoading?.(true);
     },
   });
 
