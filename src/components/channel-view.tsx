@@ -2,14 +2,14 @@
 
 import { useAppSelector } from "~/redux/hooks";
 import { selectCurrentChannel, selectIsReplying, selectReplyingToMessage, selectShowChannelDetails } from "~/redux/slices/app/app-selector";
-import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
+import { selectCurrentUserChannels, selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import MessageInput from "./message-input";
 import { ChannelType } from "~/interfaces/channels.interface";
 import { FriendInterface } from "~/interfaces/user.interface";
 import { ScrollArea } from "./ui/scroll-area";
 import Message from "./message";
 import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { Button } from "./ui/button";
@@ -19,22 +19,31 @@ import { useScrollContext } from "~/contexts/scroll-context";
 import { JSONContent } from "@tiptap/react";
 import UserDetails from "./user-details";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Avatar, AvatarImage, AvatarFallback, AvatarBadge } from "./ui/avatar";
-import { getInitialsFallback } from "~/lib/utils";
+import { Avatar, AvatarImage, AvatarFallback, AvatarBadge, AvatarGroupCount, AvatarGroup } from "./ui/avatar";
+import { getChannelTypeLabel, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
+import { WELCOMING_FIG } from "~/constants/constants";
+import Image from "next/image";
+import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
+import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
   const showChannelDetails = useAppSelector(selectShowChannelDetails);
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
+  const currentUserChannels = useAppSelector(selectCurrentUserChannels);
   const { messages, isLoading, isLoadingMore, hasMore, loadMoreMessages, isSomeoneTyping } = useChannelMessages(channelId);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showScrollButton, setShowScrollButton] = useState<boolean>(false);
   const { scrollContainerRef } = useScrollContext();
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
   const isReplying = useAppSelector(selectIsReplying);
   const replyingToMessage = useAppSelector(selectReplyingToMessage);
-
+  const mutualServers = getMutualServers(currentUserChannels, currentChannel?.directChannelOtherMember);
+  const [removeFriend] = useRemoveFriendMutation();
+  const [addFriend] = useSendFriendRequestMutation();
   const inputPlaceholder = useMemo(() => {
     if (currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember) {
       return `Message @${currentChannel.directChannelOtherMember.displayName}`;
@@ -106,6 +115,23 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
     initialScrollDone.current = false;
     prevMessagesLength.current = 0;
   }, [channelId]);
+
+  useEffect(() => {
+    const checkHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        setHighlightedMessageId(hash);
+        if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 3000);
+      }
+    };
+    checkHash();
+    window.addEventListener("hashchange", checkHash);
+    return () => {
+      window.removeEventListener("hashchange", checkHash);
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
+  }, []);
 
   // Auto-scroll to bottom when NEW messages arrive (only if user is at bottom)
   useEffect(() => {
@@ -248,34 +274,75 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
               )}
 
               <div className="p-4 pt-0">
-                {processedMessages.map((item, index) => (
-                  <div key={item.type === "date-separator" ? `date-${index}` : item.message._id}>
-                    {item.type === "date-separator" ? (
-                      <div className="flex items-center my-2 mx-4">
-                        <div className="flex-1 h-px bg-muted-foreground/20"></div>
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mx-2">
-                          {new Date(item.date).toLocaleDateString("en-US", {
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                {/* Welcoming message if the channel is new or have 0 messages */}
+
+                {processedMessages.length === 0 ?
+                  <div className="flex flex-col items-start justify-center min-h-[40vh] gap-2 p-14">
+                    <Avatar className="size-26">
+                      <AvatarImage src={currentChannel?.directChannelOtherMember?.profilePicture} />
+                      <AvatarFallback>
+                        {getInitialsFallback(currentChannel?.directChannelOtherMember?.displayName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-2 items-start mt-10">
+                      <p className="text-3xl font-bold">{currentChannel?.directChannelOtherMember?.displayName}</p>
+                      <p className="text-xl">{currentChannel?.directChannelOtherMember?.username}</p>
+                    </div>
+                    <p className="text-xl">This is the beginning of your {getChannelTypeLabel(currentChannel?.type)} history with <span className="font-bold">{currentChannel?.directChannelOtherMember?.displayName}</span>.</p>
+
+                    <div className="flex item-center justify-between mt-4 gap-2 w-2xl">
+                      {mutualServers.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <AvatarGroup className="grayscale">
+                            {mutualServers.slice(0, 3).map((server) => (
+                              <Avatar key={server._id}>
+                                <AvatarImage src={server.groupOrServerLogo || ""} />
+                                <AvatarFallback>{getInitialsFallback(server.groupOrServerName || "")}</AvatarFallback>
+                              </Avatar>
+                            ))}
+                          </AvatarGroup>
+                          <p className="flex items-center text-sm">{mutualServers.length} Mutual Servers</p>
                         </div>
-                        <div className="flex-1 h-px bg-muted-foreground/20"></div>
-                      </div>
-                    ) : (
-                      <Message
-                        key={item.message._id}
-                        message={item.message}
-                        showHeader={item.showHeader}
-                        isHovered={hoveredMessageId === item.message._id}
-                        onHover={handleMessageHover}
-                        onLeave={handleMessageLeave}
-                        channel={currentChannel || undefined}
-                        onScrollToMessage={scrollToMessage}
-                      />
-                    )}
+                      ) : <p className="self-center">No servers in common</p>}
+                      {isTheUserFriend(currentUserInfo, currentChannel?.directChannelOtherMember?._id || "") ? (
+                        <Button variant="outline" size="lg" onClick={() => removeFriend({ friendId: currentChannel?.directChannelOtherMember?._id || "" })}>
+                          Remove Friend
+                        </Button>
+                      ) : <Button variant="default" size="lg" onClick={() => addFriend({ sender: currentUserInfo, username: currentChannel?.directChannelOtherMember?.username || "" })}>
+                        Add Friend
+                      </Button>}
+                    </div>
                   </div>
-                ))}
+
+                  : processedMessages.map((item, index) => (
+                    <div key={item.type === "date-separator" ? `date-${index}` : item.message._id}>
+                      {item.type === "date-separator" ? (
+                        <div className="flex items-center my-2 mx-4">
+                          <div className="flex-1 h-px bg-muted-foreground/20"></div>
+                          <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mx-2">
+                            {new Date(item.date).toLocaleDateString("en-US", {
+                              month: "long",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <div className="flex-1 h-px bg-muted-foreground/20"></div>
+                        </div>
+                      ) : (
+                        <Message
+                          key={item.message._id}
+                          message={item.message}
+                          showHeader={item.showHeader}
+                          isHovered={hoveredMessageId === item.message._id}
+                          isHighlighted={highlightedMessageId === item.message._id}
+                          onHover={handleMessageHover}
+                          onLeave={handleMessageLeave}
+                          channel={currentChannel || undefined}
+                          onScrollToMessage={scrollToMessage}
+                        />
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           )}

@@ -7,10 +7,9 @@ import { Tag, TagInput } from "./ui/tag-input";
 import { useId, useState } from "react";
 import { FriendInterface, User } from "~/interfaces/user.interface";
 import { useRouter } from "next/navigation";
-import { createChannelName } from "~/lib/utils";
+import { createChannelName, getInitialsFallback } from "~/lib/utils";
 import { useCreateChannelMutation } from "~/redux/apis/channel.api";
 import { ChannelType } from "~/interfaces/channels.interface";
-import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { IconMessageCirclePlus, IconPlus } from "@tabler/icons-react";
 import { SidebarMenuButton } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
@@ -19,6 +18,7 @@ import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserChannels } from "~/redux/slices/user/user-selector";
 import { setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
 import { setChannelListActive } from "~/redux/slices/user/user-slice";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User; view: FriendsSelectorView; otherUser?: FriendInterface[] }> = ({
   friends,
@@ -134,7 +134,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
           {friendSelectorDisplayHelper().icon}
         </SidebarMenuButton>
       </PopoverTrigger>
-      <PopoverContent className="w-md p-6 relative flex flex-col gap-6 items-center">
+      <PopoverContent side="right" align="start" className="w-md p-6 relative flex flex-col gap-6 items-center">
         <div className="w-full">
           <h2 className="text-xl font-semibold">Select Friends</h2>
           <p className="text-xs text-muted-foreground mb-4">You can add {MAX_FRIENDS - selectedFriends.length} more friends.</p>
@@ -160,12 +160,12 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
                     onClick={() => handleSelect(friend)}
                   >
                     <div className="flex items-center gap-2">
-                      <ProfileAvailabilityIndicator
-                        status={friend.status.type}
-                        imageUrl={friend.profilePicture}
-                        name={friend.displayName}
-                        size="md"
-                      />
+                      <Avatar>
+                        <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
+                        <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
+                        <AvatarBadge className="size-2.5!" variant={friend.status.type} />
+                      </Avatar>
+
                       <div className="flex items-center gap-1">
                         <p className="font-semibold text-sm">{friend.displayName}</p>
                         <p className="text-xs text-muted-foreground">{friend.username}</p>

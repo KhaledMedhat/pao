@@ -11,6 +11,7 @@ import {
   StatusType,
   User,
   Notification,
+  UpdateUserRequest,
 } from "~/interfaces/user.interface";
 import {
   addChannel,
@@ -19,6 +20,7 @@ import {
   removeFriendRequest,
   setChannels,
   setFriendRequests,
+  setUpdatedFriend,
   setUserInfo,
   setUserLoggingInStatus,
   updateChannel,
@@ -53,6 +55,14 @@ export const authApi = createApi({
       query: (data) => ({
         url: "/user/create-user",
         method: "POST",
+        body: data,
+      }),
+    }),
+
+    updateUser: builder.mutation<User, UpdateUserRequest>({
+      query: (data) => ({
+        url: "/user/update-user-info",
+        method: "PATCH",
         body: data,
       }),
     }),
@@ -121,6 +131,19 @@ export const authApi = createApi({
         try {
           await cacheDataLoaded;
           const socket = await socketService.initialize();
+          const handleUpdatedUser = (data: { userId: string; updatedUser: any }) => {
+            const state = getState() as RootState;
+            const currentUser = state.user.userInfo;
+
+            if (data.userId === currentUser._id) {
+              dispatch(setUserInfo({ ...currentUser, ...data.updatedUser }));
+            }
+
+            const friend = currentUser.friends.find((f) => f._id === data.userId);
+            if (friend) {
+              dispatch(setUpdatedFriend({ friend, updatedUser: data.updatedUser }));
+            }
+          };
           const handleFriendRequest = (data: { friendRequest: FriendRequest }) => {
             dispatch(addFriendRequest(data.friendRequest));
           };
@@ -164,6 +187,7 @@ export const authApi = createApi({
           socket?.on("updateGroupChannel", handleChannelUpdate);
           socket?.on("pinMessage", handlePinMessage);
           socket?.on("unpinMessage", handleUnpinMessage);
+          socket?.on("updateUser", handleUpdatedUser);
           await cacheEntryRemoved;
           socket?.off("friendRequest", handleFriendRequest);
           socket?.off("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
@@ -171,6 +195,7 @@ export const authApi = createApi({
           socket?.off("updateGroupChannel", handleChannelUpdate);
           socket?.off("pinMessage", handlePinMessage);
           socket?.off("unpinMessage", handleUnpinMessage);
+          socket?.off("updateUser", handleUpdatedUser);
         } catch (error) {
           console.error("Socket cache entry error:", error);
         }
@@ -186,4 +211,5 @@ export const {
   useCreateAccountMutation,
   useGetUserInfoQuery,
   useRemoveFriendMutation,
+  useUpdateUserMutation,
 } = authApi;

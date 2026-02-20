@@ -45,11 +45,10 @@ import { NestErrorResponse } from "~/interfaces/error.interface";
 import { Spinner } from "./ui/spinner";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "./ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Badge } from "./ui/badge";
 import { useSearchUsersMutation } from "~/redux/apis/user.api";
-import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./ui/empty";
 import FriendsSelector from "./friends-selector";
 import { setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
@@ -584,12 +583,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           usersQuery?.map((user) => (
                             <Link href={`/user/${user._id}`} key={user._id} className="w-full">
                               <Button variant="ghost" className="flex items-center justify-start gap-2 w-full">
-                                <ProfileAvailabilityIndicator
-                                  size="sm"
-                                  status={user.status.type}
-                                  imageUrl={user.profilePicture}
-                                  name={user.displayName}
-                                />
+                                <Avatar className="size-6">
+                                  <AvatarImage src={user.profilePicture} alt={user.displayName} />
+                                  <AvatarFallback>{getInitialsFallback(user.displayName)}</AvatarFallback>
+                                  <AvatarBadge className="size-2.5!" variant={user.status.type} />
+                                </Avatar>
                                 <span className="flex items-center gap-2">{user.displayName}</span>
                                 <span className="text-xs text-muted-foreground">{user.username}</span>
                               </Button>
@@ -717,21 +715,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             }}
                           >
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <ProfileAvailabilityIndicator
-                                status={channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.status?.type : undefined}
-                                imageUrl={
-                                  channel.type === ChannelType.Direct
-                                    ? channel.directChannelOtherMember?.profilePicture || ""
-                                    : channel.groupOrServerLogo || ""
-                                }
-                                name={
-                                  channel.type === ChannelType.Direct
-                                    ? channel.directChannelOtherMember?.displayName || ""
-                                    : channel.groupOrServerName || ""
-                                }
-                                size="md"
-                                className="pt-1 shrink-0"
-                              />
+                              <Avatar>
+                                <AvatarImage src={channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.profilePicture || "" : channel.groupOrServerLogo || ""} alt={channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.displayName || "" : channel.groupOrServerName || ""} />
+                                <AvatarFallback>{getInitialsFallback(channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.displayName || "" : channel.groupOrServerName || "")}</AvatarFallback>
+                                {channel.type === ChannelType.Direct && <AvatarBadge className="size-2.5!" variant={channel.directChannelOtherMember?.status?.type} />}
+                              </Avatar>
                               <div className="flex flex-col items-start min-w-0 flex-1">
                                 <p className="font-semibold text-sm text-muted-foreground truncate max-w-[150px]">
                                   {channel.type === ChannelType.Direct

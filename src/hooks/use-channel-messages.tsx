@@ -145,7 +145,7 @@ export function useChannelMessages(channelId: string) {
             manuallyUpdatedAt?: string;
             newText?: JSONContent;
             isPinned?: boolean;
-            reaction?: { emoji: string; sentBy: User };
+            reaction?: { emoji: string; label: string; sentBy: User };
         }) => {
             if (data.referenceId !== channelId) return;
 
@@ -174,7 +174,7 @@ export function useChannelMessages(channelId: string) {
 
                     // Case 3: Reaction update
                     if (data.reaction) {
-                        const { emoji, sentBy } = data.reaction;
+                        const { emoji, label, sentBy } = data.reaction;
                         const existingReactions = [...(updatedMsg.reactions || [])];
                         const reactionIndex = existingReactions.findIndex((r) => r.emoji === emoji);
 
@@ -182,6 +182,7 @@ export function useChannelMessages(channelId: string) {
                             // Case 3a: New emoji - add new reaction with count 1
                             existingReactions.push({
                                 emoji,
+                                label,
                                 counter: 1,
                                 sentBy: [sentBy],
                             });

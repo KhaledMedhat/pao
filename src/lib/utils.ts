@@ -4,6 +4,7 @@ import { Area } from "react-easy-crop";
 import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 import { getCookie } from "~/app/actions";
+import { OBSSESSION_PROMPTS } from "~/constants/constants";
 import { Channel, ChannelType } from "~/interfaces/channels.interface";
 import { FriendInterface, FriendInterfaceWithFriendIds, User } from "~/interfaces/user.interface";
 import { setUserLoggingInStatus } from "~/redux/slices/user/user-slice";
@@ -125,8 +126,8 @@ export function getMutualFriends(currentUser: User, friend: FriendInterfaceWithF
  * @param friend - The friend
  * @returns The mutual servers of the current user and the friend
  */
-export function getMutualServers(currentUserChannels: Channel[], friend: FriendInterface) {
-  return currentUserChannels.filter((c) => c.type === ChannelType.Server && c.members.some((m) => m._id === friend._id));
+export function getMutualServers(currentUserChannels: Channel[], friend: FriendInterface | undefined) {
+  return currentUserChannels.filter((c) => c.type === ChannelType.Server && c.members.some((m) => m._id === friend?._id));
 }
 
 /**
@@ -136,7 +137,9 @@ export function getMutualServers(currentUserChannels: Channel[], friend: FriendI
  * @returns True if the current user is a friend of the friend, false otherwise
  */
 export function isTheUserFriend(currentUser: User, friendId: string) {
-  return currentUser.friends.some((f) => f._id === friendId);
+  return currentUser.friends.some((f) =>
+    typeof f === "string" ? f === friendId : f._id === friendId
+  );
 }
 
 /**
@@ -387,4 +390,27 @@ export const formatBytes = (bytes: number, decimals = 2): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
 
   return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + sizes[i]
+}
+
+
+
+
+/**
+ * Generate a random obsession prompt
+ * @param setPrompt - The function to set the prompt
+ * @param usedIndexes - The used indexes
+ * @returns The random obsession prompt
+ */
+export function generateRandomObsessionPrompt(setPrompt: (value: string) => void, usedIndexes: React.RefObject<Set<number>>) {
+  if (usedIndexes.current.size === OBSSESSION_PROMPTS.length) {
+    usedIndexes.current.clear(); // Reset when all prompts are used
+  }
+
+  let index: number;
+  do {
+    index = Math.floor(Math.random() * OBSSESSION_PROMPTS.length);
+  } while (usedIndexes.current.has(index));
+
+  usedIndexes.current.add(index);
+  setPrompt(OBSSESSION_PROMPTS[index]);
 }

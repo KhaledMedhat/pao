@@ -4,6 +4,10 @@ export const sendFriendRequestSchema = z.object({
   username: z.string(),
 });
 
+export const setObsessionSchema = z.object({
+  obsession: z.string().optional(),
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
@@ -70,3 +74,4 @@ export type SignupStep2Values = z.infer<typeof signupStep2Schema>;
 export type GoogleSignupCompletionValues = z.infer<typeof googleSignupCompletionSchema>;
 export type InvitationServerJoinValues = z.infer<typeof invitationServerJoinSchema>;
 export type CreateServerValues = z.infer<typeof createServerSchema>;
+export type SetObsessionValues = z.infer<typeof setObsessionSchema>;

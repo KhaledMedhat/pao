@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import ProfileAvailabilityIndicator from "~/components/profile-availability-indicator";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "~/components/ui/form";
@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/comp
 import { ActiveUI, FriendListPageInfo, FriendsView, MessageRequestsView } from "~/interfaces/app.interface";
 import { NestErrorResponse } from "~/interfaces/error.interface";
 import { FriendInterface, FriendRequestStatus, StatusType } from "~/interfaces/user.interface";
-import { extractDirectChannelFromMembers } from "~/lib/utils";
+import { extractDirectChannelFromMembers, getInitialsFallback } from "~/lib/utils";
 import { sendFriendRequestSchema, SendFriendRequestValues } from "~/lib/validation";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { useAcceptFriendRequestMutation, useRejectFriendRequestMutation, useSendFriendRequestMutation } from "~/redux/apis/user.api";
@@ -226,12 +226,11 @@ export default function ChannelsPage() {
                 <TableRow key={friend._id} className="justify-between flex items-center group/friend border-t!">
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <ProfileAvailabilityIndicator
-                        status={friendListPageInfo.showStatus ? friend.status.type : undefined}
-                        imageUrl={friend.profilePicture}
-                        name={friend.displayName}
-                        size="md"
-                      />
+                      <Avatar>
+                        <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
+                        <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
+                        <AvatarBadge className="size-2.5!" variant={friend.status.type} />
+                      </Avatar>
                       <div className="flex flex-col itmes-start">
                         <div className="flex items-center gap-1">
                           <p className="font-semibold text-sm">{friend.displayName}</p>

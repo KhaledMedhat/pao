@@ -3,7 +3,7 @@ import { useMemo, useState } from "react"
 import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface"
 import { Input } from "./ui/input"
 import { FileIcon, Search } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Checkbox } from "./ui/checkbox"
 import { Badge } from "./ui/badge"
 import { Separator } from "./ui/separator"
@@ -14,9 +14,9 @@ import { selectCurrentUserChannels, selectCurrentUserInfo } from "~/redux/slices
 import { useSendMessageMutation } from "~/redux/apis/channel.api"
 import { Channel, ChannelType } from "~/interfaces/channels.interface"
 import { useAppSelector } from "~/redux/hooks"
-import ProfileAvailabilityIndicator from "./profile-availability-indicator"
 import { ScrollArea } from "./ui/scroll-area"
 import ReactionPicker from "./reaction-picker"
+import { getInitialsFallback } from "~/lib/utils"
 
 const ForwardMessage: React.FC<{ message?: MessageInterface, imageMessage?: { originalMessageId: string, attachments: Attachment }, setIsForwardDialogOpen: (isForwardDialogOpen: boolean) => void }> = ({ message, imageMessage, setIsForwardDialogOpen }) => {
     const [sendMessage] = useSendMessageMutation()
@@ -163,12 +163,11 @@ const ForwardMessage: React.FC<{ message?: MessageInterface, imageMessage?: { or
                                 <div className="flex items-center gap-2">
                                     {channel.type === ChannelType.Direct ? (() => {
                                         return (
-                                            <ProfileAvailabilityIndicator
-                                                size="sm"
-                                                status={channel.directChannelOtherMember?.status?.type}
-                                                imageUrl={channel.directChannelOtherMember?.profilePicture || ""}
-                                                name={channel.directChannelOtherMember?.displayName || ""}
-                                            />
+                                            <Avatar className="size-6">
+                                                <AvatarImage src={channel.directChannelOtherMember?.profilePicture || ""} alt={channel.directChannelOtherMember?.displayName || ""} />
+                                                <AvatarFallback>{getInitialsFallback(channel.directChannelOtherMember?.displayName || "")}</AvatarFallback>
+                                                <AvatarBadge className="size-2.5!" variant={channel.directChannelOtherMember?.status?.type} />
+                                            </Avatar>
                                         )
                                     })() : (
                                         <Avatar className="size-8 bg-muted">

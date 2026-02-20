@@ -28,7 +28,6 @@ import {
 } from "@tabler/icons-react";
 import { Input } from "./ui/input";
 import { ChannelType } from "~/interfaces/channels.interface";
-import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { FriendRequestStatus } from "~/interfaces/user.interface";
 import { Badge } from "./ui/badge";
@@ -50,7 +49,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./
 import { formatDate, getChannelTypeLabel, getInitialsFallback } from "~/lib/utils";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent } from "./ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollContext } from "~/contexts/scroll-context";
@@ -415,20 +414,12 @@ const DashboardHeader = () => {
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <ProfileAvailabilityIndicator
-                        status={currentChannel?.type === ChannelType.Direct ? currentChannel?.directChannelOtherMember?.status?.type : undefined}
-                        imageUrl={
-                          currentChannel?.type === ChannelType.Direct
-                            ? currentChannel?.directChannelOtherMember?.profilePicture || ""
-                            : currentChannel?.groupOrServerLogo || ""
-                        }
-                        name={
-                          currentChannel?.type === ChannelType.Direct
-                            ? currentChannel?.directChannelOtherMember?.displayName || ""
-                            : currentChannel?.groupOrServerName || ""
-                        }
-                        size="sm"
-                      />
+                      <Avatar>
+                        <AvatarImage src={currentChannel?.type === ChannelType.Direct ? currentChannel?.directChannelOtherMember?.profilePicture || "" : currentChannel?.groupOrServerLogo || ""} alt={currentChannel?.type === ChannelType.Direct ? currentChannel?.directChannelOtherMember?.displayName || "" : currentChannel?.groupOrServerName || ""} />
+                        <AvatarFallback>{getInitialsFallback(currentChannel?.type === ChannelType.Direct ? currentChannel?.directChannelOtherMember?.displayName || "" : currentChannel?.groupOrServerName || "")}</AvatarFallback>
+                        {currentChannel?.type === ChannelType.Direct && <AvatarBadge className="size-2.5!" variant={currentChannel?.directChannelOtherMember?.status?.type} />}
+                      </Avatar>
+
                       <div className="flex items-center gap-1">
                         <p className="font-semibold text-sm">
                           {currentChannel?.type === ChannelType.Direct

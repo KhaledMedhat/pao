@@ -59,6 +59,7 @@ export interface Attachment {
 
 export interface ReactionInterface {
   emoji: string;
+  label: string;
   counter: number;
   sentBy: User[];
 }

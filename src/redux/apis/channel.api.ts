@@ -83,7 +83,7 @@ export const channelApi = createApi({
         method: "PATCH",
       }),
     }),
-    toggleReaction: builder.mutation<void, { messageId: string; reaction: { emoji: string; userId: string } }>({
+    toggleReaction: builder.mutation<void, { messageId: string; reaction: { emoji: string; label: string; userId: string } }>({
       query: (args) => ({
         url: `/messages/toggle-reaction/${args.messageId}`,
         method: "PATCH",

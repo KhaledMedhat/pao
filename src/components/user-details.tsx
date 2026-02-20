@@ -3,9 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserChannels, selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import { extractDirectChannelFromMembers, getInitialsFallback, getMutualFriends, getMutualServers, isTheUserFriend } from "~/lib/utils";
-import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./ui/empty";
-import { IconAtOff, IconDots, IconDotsVertical, IconIdBadge, IconMessageCircleFilled, IconUserCheck, IconUserEdit, IconUserPlus } from "@tabler/icons-react";
+import { IconAtOff, IconDots, IconIdBadge, IconMessageCircleFilled, IconUserCheck, IconUserEdit, IconUserPlus } from "@tabler/icons-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -41,6 +40,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Card, CardContent } from "./ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Separator } from "./ui/separator";
+import ObsessionBubble from "./obsession-bubble";
 
 const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | "lg"; setDialogOpen?: (open: boolean) => void }> = ({
   user,
@@ -110,15 +110,29 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
       <div className="flex items-start justify-between gap-10 h-full">
         <div className="flex flex-col w-full bg-main-primary rounded-t-lg h-full">
           <div className="relative w-full">
-            <div className="h-40 w-full bg-main rounded-t-lg"></div>
+            <div className="h-40 w-full bg-cover-placeholder rounded-t-lg"></div>
             <div className="absolute -bottom-10 left-6">
-              <ProfileAvailabilityIndicator status={user.status.type} imageUrl={user.profilePicture} name={user.displayName} size="xl" />
+              <Avatar className="size-28">
+                <AvatarImage src={user.profilePicture} alt={user.displayName} />
+                <AvatarFallback>{getInitialsFallback(user.displayName)}</AvatarFallback>
+                <AvatarBadge className="size-7! ring-4 ring-main-primary" variant={user.status.type} />
+              </Avatar>
             </div>
           </div>
           <div className="mt-16 flex flex-col items-start gap-6 pl-8">
             <div className="flex flex-col items-start">
               <p className="font-semibold text-xl">{user.displayName}</p>
-              <p className="text-muted-foreground">{user.username}</p>
+              <span className="flex items-center gap-2">
+                <p className="text-muted-foreground">{user.username}</p>
+                {user.pronouns && <> &#8226; <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-muted-foreground text-sm">{user.pronouns}</p>
+                  </TooltipTrigger>
+                  <TooltipContent>Pronouns</TooltipContent>
+                </Tooltip>
+                </>}
+
+              </span>
             </div>
             {currentUserId === user._id ? <Button>
               Edit Profile
@@ -218,7 +232,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                 </Tooltip>
               </TooltipProvider>
             </div>}
-            {user.bio && <p className="text-muted-foreground">{user.bio}</p>}
+            {user.bio && <p className="max-w-3/4 text-sm">{user.bio}</p>}
             <div className="flex items-start flex-col">
               <p className="text-sm">Member Since</p>
               <p className="text-sm">
@@ -241,12 +255,11 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
               {mutualFriends.length > 0 ? (
                 mutualFriends.map((friend) => (
                   <div className="flex items-center gap-2" key={friend._id}>
-                    <ProfileAvailabilityIndicator
-                      status={friend.status.type}
-                      imageUrl={friend.profilePicture}
-                      name={friend.displayName}
-                      size="md"
-                    />
+                    <Avatar>
+                      <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
+                      <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
+                      <AvatarBadge className="size-2.5!" variant={friend.status.type} />
+                    </Avatar>
                     <div className="flex items-center gap-1">
                       <p className="font-semibold text-sm">{friend.displayName}</p>
                     </div>
@@ -270,7 +283,10 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
               {mutualServers.length > 0 ? (
                 mutualServers.map((server) => (
                   <div className="flex items-center gap-2" key={server._id}>
-                    <ProfileAvailabilityIndicator imageUrl={server.groupOrServerLogo || ""} name={server.groupOrServerName || ""} size="md" />
+                    <Avatar>
+                      <AvatarImage src={server.groupOrServerLogo || ""} />
+                      <AvatarFallback>{getInitialsFallback(server.groupOrServerName || "")}</AvatarFallback>
+                    </Avatar>
                     <div className="flex items-center gap-1">
                       <p className="font-semibold text-sm">{server.groupOrServerName}</p>
                     </div>
@@ -300,7 +316,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
         return (
           <Dialog>
             <div className="w-full flex flex-col gap-4">
-              <div className="relative w-full h-30 bg-main rounded-t-md">
+              <div className="relative w-full h-30 bg-cover-placeholder rounded-t-md">
                 {isTheUserFriend(currentUser, user._id) &&
                   <div className="flex items-center gap-2 absolute top-2 right-2">
                     <TooltipProvider>
@@ -377,6 +393,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                     </Avatar>
                   </DialogTrigger>
                 </div>
+                {!isTheUserFriend(currentUser, user._id) && <ObsessionBubble haveObsession={!!user.obsession?.text?.trim() || !!user.obsession?.emoji} prompt={`What's on your mind, ${user.displayName}?`} currentUserInfo={currentUser} />}
               </div>
               <div className="px-4 pt-8 pb-4 flex flex-col items-start gap-2">
                 <div className="flex flex-col items-start">
@@ -385,11 +402,27 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                       {user.displayName}
                     </Button>
                   </DialogTrigger>
-                  <DialogTrigger asChild>
-                    <Button variant="link" className="text-muted-foreground text-sm p-0 h-fit">
-                      {user.username}
-                    </Button>
-                  </DialogTrigger>
+                  <div className="flex items-center gap-2">
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="text-sm p-0 h-fit">
+                        {user.username}
+                      </Button>
+                    </DialogTrigger>
+                    {user.pronouns &&
+                      <>
+                        &#8226;
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm p-0 h-fit">{user.pronouns}</p>
+                          </TooltipTrigger>
+                          <TooltipContent>Pronouns</TooltipContent>
+                        </Tooltip>
+                      </>
+                    }
+
+                  </div>
+                  {user.bio && <p className="text-sm">{user.bio}</p>}
+
                 </div>
                 {isTheUserFriend(currentUser, user._id) &&
                   <div className="flex flex-col items-start gap-2">
@@ -462,7 +495,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
           <Dialog>
             <div className="w-full flex flex-col gap-4 justify-between h-full">
               <div className="flex flex-col gap-4">
-                <div className="relative w-full h-30 bg-main rounded-t-md">
+                <div className="relative w-full h-40 bg-cover-placeholder rounded-t-md">
                   {isTheUserFriend(currentUser, user._id) &&
                     <div className="flex items-center gap-2 absolute top-2 right-2">
                       <TooltipProvider>
@@ -535,7 +568,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                           alt={user.displayName}
                         />
                         <AvatarFallback>{getInitialsFallback(user.displayName)}</AvatarFallback>
-                        <AvatarBadge className="size-5!" variant={user.status.type} />
+                        <AvatarBadge className="size-5! ring-4 ring-main-primary" variant={user.status.type} />
                       </Avatar>
                     </DialogTrigger>
                   </div>
@@ -547,11 +580,24 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                         {user.displayName}
                       </Button>
                     </DialogTrigger>
-                    <DialogTrigger asChild>
-                      <Button variant="link" className="text-muted-foreground text-sm p-0 h-fit">
-                        {user.username}
-                      </Button>
-                    </DialogTrigger>
+                    <div className="flex items-center gap-2">
+                      <DialogTrigger asChild>
+                        <Button variant="link" className="text-sm p-0 h-fit">
+                          {user.username}
+                        </Button>
+                      </DialogTrigger>
+                      {user.pronouns &&
+                        <>
+                          &#8226;
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-sm p-0 h-fit">{user.pronouns}</p>
+                            </TooltipTrigger>
+                            <TooltipContent>Pronouns</TooltipContent>
+                          </Tooltip>
+                        </>
+                      }
+                    </div>
                   </div>
                   <Card className="w-full">
                     <CardContent className="text-muted-foreground space-y-2">

@@ -74,8 +74,20 @@ export const userSlice = createSlice({
     setUserInfo: (state, action: PayloadAction<User>) => {
       state.userInfo = action.payload;
     },
-    setUpdatedFriend: (state, action: PayloadAction<FriendInterface>) => {
-      state.userInfo.friends = state.userInfo.friends.map((friend) => (friend._id === action.payload._id ? action.payload : friend));
+    setUpdatedFriend: (state, action: PayloadAction<{ friend: FriendInterface; updatedUser: any }>) => {
+      const { friend, updatedUser } = action.payload;
+      const friendId = friend._id;
+
+      state.userInfo.friends = state.userInfo.friends.map((f) => (f._id === friendId ? { ...f, ...updatedUser } : f));
+
+      state.channelsInfo = state.channelsInfo.map((channel) => ({
+        ...channel,
+        members: channel.members.map((m) => (m._id === friendId ? { ...m, ...updatedUser } : m)),
+        directChannelOtherMember:
+          channel.directChannelOtherMember?._id === friendId
+            ? { ...channel.directChannelOtherMember, ...updatedUser }
+            : channel.directChannelOtherMember,
+      }));
     },
     setChannelListActive: (state, action: PayloadAction<{ channelId: string; listActive: boolean }>) => {
       state.channelsInfo = state.channelsInfo.map((channel) =>

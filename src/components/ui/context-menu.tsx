@@ -43,7 +43,7 @@ function ContextMenuSubTrigger({
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-muted focus:text-accent-foreground data-[state=open]:bg-muted data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex gap-4 cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-muted font-semibold focus:text-accent-foreground data-[state=open]:bg-muted data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex gap-4 cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

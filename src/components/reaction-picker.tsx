@@ -12,11 +12,14 @@ const ReactionPicker: React.FC<{
   currentEmoji?: string,
   selectedEmoji?: string | null;
   setCurrentEmoji?: (emoji: string) => void
-  addEmojiToMessage?: (emoji: string) => void
+  addEmojiToMessage?: ((emoji: string) => void) | { onSelect: (emoji: string) => void; select?: React.ReactNode };
   messageId?: string;
   isShortcut: boolean;
   currentUserId?: string;
 }> = ({ currentEmoji, selectedEmoji, setCurrentEmoji, isMessageInput, addEmojiToMessage, messageId, currentUserId, isShortcut }) => {
+  const isAddEmojiObject = addEmojiToMessage != null && typeof addEmojiToMessage === "object" && "onSelect" in addEmojiToMessage;
+  const onEmojiSelect = isAddEmojiObject ? (addEmojiToMessage as { onSelect: (emoji: string) => void }).onSelect : addEmojiToMessage;
+  const selectContent = isAddEmojiObject ? (addEmojiToMessage as { select?: React.ReactNode }).select : null;
   const [hoverEmoji, setHoverEmoji] = useState<string>("😊");
   const [isEmojiHovered, setIsEmojiHovered] = useState(false);
   const [makeReaction] = useToggleReactionMutation(); const getRandomEmoji = () => {
@@ -81,11 +84,12 @@ const ReactionPicker: React.FC<{
             forceMount
             className="will-change-transform transform-gpu w-fit p-0 data-[state=closed]:invisible data-[state=closed]:pointer-events-none"
           >
+            {selectContent && <div className="p-2 border-b">{selectContent}</div>}
             <EmojiPicker
               className="h-[342px]"
-              onEmojiSelect={({ emoji }) => {
-                if (addEmojiToMessage) {
-                  addEmojiToMessage(emoji);
+              onEmojiSelect={({ emoji, label }) => {
+                if (onEmojiSelect && typeof onEmojiSelect === "function") {
+                  onEmojiSelect(emoji);
                 }
 
                 if (messageId && currentUserId) {
@@ -93,6 +97,7 @@ const ReactionPicker: React.FC<{
                     messageId: messageId,
                     reaction: {
                       emoji: emoji,
+                      label: `:${label}:`,
                       userId: currentUserId,
                     },
                   });

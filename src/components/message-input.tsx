@@ -7,18 +7,16 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { IconFileUploadFilled, IconMicrophone, IconMicrophoneFilled, IconMoodSmile, IconPaperclip, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlus, IconSend, IconTrash, IconX } from "@tabler/icons-react";
-import { cn } from "~/lib/utils";
+import { cn, getInitialsFallback } from "~/lib/utils";
 import { InputGroup, InputGroupAddon, InputGroupButton } from "./ui/input-group";
 import { FriendInterface } from "~/interfaces/user.interface";
 import ReactionPicker from "./reaction-picker";
 import { Button } from "./ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "./ui/popover";
-import ProfileAvailabilityIndicator from "./profile-availability-indicator";
 import { useSendMessageMutation, useUpdateMessageMutation } from "~/redux/apis/channel.api";
 import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
-import { useSocket } from "~/hooks/use-socket";
 import { socketService } from "~/lib/socket";
 import { selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
 import { setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
@@ -28,6 +26,7 @@ import useUpload from "~/hooks/use-upload";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 interface MentionListProps {
   items: FriendInterface[];
@@ -98,13 +97,11 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(({ items, comma
           )}
         >
           <div className="flex items-center gap-2">
-            <ProfileAvailabilityIndicator
-              className="pt-1"
-              size="sm"
-              status={item.status.type}
-              imageUrl={item.profilePicture}
-              name={item.displayName}
-            />
+            <Avatar>
+              <AvatarImage src={item.profilePicture} alt={item.displayName} />
+              <AvatarFallback>{getInitialsFallback(item.displayName)}</AvatarFallback>
+              <AvatarBadge className="size-2.5!" variant={item.status.type} />
+            </Avatar>
             <span className="flex items-center gap-2">{item.displayName}</span>
           </div>
           <span className="text-xs text-muted-foreground font-semibold">{item.username}</span>

@@ -6,8 +6,8 @@ export function proxy(req: NextRequest) {
   // Check if the user is accessing protected routes (using startsWith for dynamic routes)
   const isChannelRoute = req.nextUrl.pathname.startsWith("/channels");
   const isDmRoute = req.nextUrl.pathname.startsWith("/dm");
-  const isServerRoute = req.nextUrl.pathname.startsWith("/servers");
-  const isGroupRoute = req.nextUrl.pathname.startsWith("/groups");
+  const isServerRoute = req.nextUrl.pathname.startsWith("/server");
+  const isGroupRoute = req.nextUrl.pathname.startsWith("/group");
   const isLoginRoute = req.nextUrl.pathname.startsWith("/login");
   const isRegisterRoute = req.nextUrl.pathname.startsWith("/signup");
   const isProtectedRoute = isChannelRoute || isDmRoute || isServerRoute || isGroupRoute;
