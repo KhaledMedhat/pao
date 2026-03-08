@@ -51,6 +51,8 @@ export interface AppInitialState {
   currentChannelId: string | null;
   isReplying: boolean;
   replyingToMessage: MessageInterface | null;
+  activeChannelRoom: { _id: string, name: string, type?: string } | null;
+  openServerInvitationDialog: boolean;
 }
 
 export type RecordingState = "idle" | "recording" | "paused"

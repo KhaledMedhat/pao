@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal
 import { downloadFile, formatBytes, formatDate, getInitialsFallback, handleCopy } from "~/lib/utils"
 import ForwardMessage from "./forward-message"
 import { Spinner } from "./ui/spinner";
+import { SHORT_LOGO_URL } from "~/constants/constants";
 
 interface AttachmentsGridProps {
     attachments: Attachment[]
@@ -514,7 +515,11 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
                                 </VisuallyHidden.Root>
                                 <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="size-12">
+                                        <Avatar className="size-12" style={
+                                            sender?.profilePicture === SHORT_LOGO_URL && sender?.profilePictureBannerColor
+                                                ? { backgroundColor: sender.profilePictureBannerColor }
+                                                : undefined
+                                        }>
                                             <AvatarImage src={sender?.profilePicture || ""} />
                                             <AvatarFallback>{getInitialsFallback(sender?.displayName)}</AvatarFallback>
                                         </Avatar>

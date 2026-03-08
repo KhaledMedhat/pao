@@ -16,7 +16,7 @@ import { selectCurrentUserInfo, selectUserLoggedInStatus } from "~/redux/slices/
 import { syncAuthState } from "~/lib/utils";
 import { useEffect } from "react";
 import Image from "next/image";
-import { setActiveUI, setDashboardFriendsHeaderActiveUI } from "~/redux/slices/app/app-slice";
+import { setActiveChannelRoom, setActiveUI, setCurrentChannelId, setDashboardFriendsHeaderActiveUI } from "~/redux/slices/app/app-slice";
 import { ActiveUI, FriendsView } from "~/interfaces/app.interface";
 
 export function Navbar() {
@@ -143,18 +143,20 @@ export function Navbar() {
                 <Button onClick={() => {
                   dispatch(setActiveUI(ActiveUI.FRIENDS_LIST))
                   dispatch(setDashboardFriendsHeaderActiveUI(FriendsView.ONLINE))
-                }} className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90">Start Chatting</Button>
+                  dispatch(setActiveChannelRoom(null))
+                  dispatch(setCurrentChannelId(null))
+                }} >Start Chatting</Button>
               </Link>
             </>
           ) : (
             <>
               <Link href="/login">
-                <Button variant="ghost" className="rounded-full">
+                <Button variant="ghost">
                   Login
                 </Button>
               </Link>
               <Link href="/signup">
-                <Button className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90">Get Started</Button>
+                <Button>Get Started</Button>
               </Link>
             </>
           )}

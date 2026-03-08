@@ -17,7 +17,7 @@ import { ActiveUI, FriendsSelectorView } from "~/interfaces/app.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserChannels } from "~/redux/slices/user/user-selector";
 import { setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
-import { setChannelListActive } from "~/redux/slices/user/user-slice";
+import { addChannel, setChannelListActive } from "~/redux/slices/user/user-slice";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User; view: FriendsSelectorView; otherUser?: FriendInterface[] }> = ({
@@ -106,15 +106,15 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
     } else {
       await createChannel({
         members: [...selectedFriends.map((friend) => friend._id), currentUser._id],
-        groupOrServerLogo: SHORT_LOGO_URL,
         type: ChannelType.Group,
         groupOrServerName: createChannelName([currentUser.displayName, ...selectedFriends.map((friend) => friend.displayName)]),
       })
         .unwrap()
         .then((res) => {
-          router.push(`/group/${res.data.route}`);
+          dispatch(addChannel(res.data.channel));
           dispatch(setCurrentChannelId(res.data.channel._id));
           dispatch(setActiveUI(ActiveUI.GROUP));
+          router.push(`/group/${res.data.route}`);
           setSelectedFriends([]);
           setOpenPopover(false);
         });
@@ -156,17 +156,21 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
                 filteredFriends?.map((friend) => (
                   <div
                     key={friend._id}
-                    className="group/friend flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-hover transition-all duration-300 ease-in-out"
+                    className="group/friend flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted-foreground/8 transition-all duration-300 ease-in-out"
                     onClick={() => handleSelect(friend)}
                   >
                     <div className="flex items-center gap-2">
-                      <Avatar>
+                      <Avatar style={
+                        friend.profilePicture === SHORT_LOGO_URL && friend.profilePictureBannerColor
+                          ? { backgroundColor: friend.profilePictureBannerColor }
+                          : undefined
+                      }>
                         <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
                         <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
                         <AvatarBadge className="size-2.5!" variant={friend.status.type} />
                       </Avatar>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-start flex-col">
                         <p className="font-semibold text-sm">{friend.displayName}</p>
                         <p className="text-xs text-muted-foreground">{friend.username}</p>
                       </div>

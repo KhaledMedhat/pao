@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ServerChannelType } from "~/interfaces/channels.interface";
 
 export const sendFriendRequestSchema = z.object({
   username: z.string(),
@@ -66,6 +67,11 @@ export const createServerSchema = z.object({
   serverImage: z.instanceof(File).optional(),
 });
 
+export const createChannelCategorySchema = z.object({
+  channelType: z.enum([ServerChannelType.Text, ServerChannelType.Voice]),
+  channelName: z.string(),
+});
+
 export type SendFriendRequestValues = z.infer<typeof sendFriendRequestSchema>;
 export type EditGroupValues = z.infer<typeof editGroupSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
@@ -75,3 +81,4 @@ export type GoogleSignupCompletionValues = z.infer<typeof googleSignupCompletion
 export type InvitationServerJoinValues = z.infer<typeof invitationServerJoinSchema>;
 export type CreateServerValues = z.infer<typeof createServerSchema>;
 export type SetObsessionValues = z.infer<typeof setObsessionSchema>;
+export type CreateChannelCategoryValues = z.infer<typeof createChannelCategorySchema>;

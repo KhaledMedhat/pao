@@ -14,7 +14,7 @@ import { setObsessionSchema, SetObsessionValues } from "~/lib/validation";
 import { Button } from "./ui/button";
 import ReactionPicker from "./reaction-picker";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./ui/select";
-import { OBSSESSION_DURATIONS } from "~/constants/constants";
+import { OBSSESSION_DURATIONS, SHORT_LOGO_URL } from "~/constants/constants";
 import { useUpdateUserMutation } from "~/redux/apis/auth.api";
 import { Spinner } from "./ui/spinner";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
@@ -127,7 +127,11 @@ const ObsessionBubble: React.FC<{ haveObsession: boolean, prompt: string, curren
                             <CardContent className="p-0">
                                 <div className="relative w-full h-30 bg-cover-placeholder rounded-t-2xl">
                                     <div className="absolute -bottom-10 left-4">
-                                        <Avatar className="size-20">
+                                        <Avatar className="size-20" style={
+                                            currentUserInfo.profilePicture === SHORT_LOGO_URL && currentUserInfo.profilePictureBannerColor
+                                                ? { backgroundColor: currentUserInfo.profilePictureBannerColor }
+                                                : undefined
+                                        }>
                                             <AvatarImage
                                                 src={currentUserInfo.profilePicture}
                                                 alt={currentUserInfo.displayName}

@@ -107,7 +107,7 @@ export function TagInput({
       onClick={handleContainerClick}
     >
       {tags.map((tag) => (
-        <Badge tabIndex={-1} key={tag.id} className="cursor-pointer" variant={tagVariant} onClick={(e) => removeTag(tag.id, e)}>
+        <Badge tabIndex={-1} key={tag.id} className="cursor-pointer rounded-sm py-1" variant={tagVariant} onClick={(e) => removeTag(tag.id, e)}>
           {tag.text}
           <IconX size={12} />
         </Badge>
@@ -120,7 +120,7 @@ export function TagInput({
         className={cn(
           "bg-transparent text-lg outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 h-6",
           // Dynamic width based on available space
-          tags.length === 0 ? "flex-grow" : "flex-shrink-0 min-w-[80px] max-w-[200px]",
+          tags.length === 0 ? "grow" : "shrink-0 min-w-[80px] max-w-[200px]",
           styleClasses?.input
         )}
         onFocus={handleInputFocus}

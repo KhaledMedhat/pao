@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Lato } from "next/font/google";
 import "./globals.css";
 import { Providers } from "~/redux/provider";
-import { Toaster } from "~/components/ui/sonner";
-
+import { Toaster } from "sileo";
 const lato = Lato({
   variable: "--font-lato",
   subsets: ["latin"],
@@ -25,7 +24,17 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth">
       <body className={`${lato.variable} antialiased`}>
         <Providers>{children}</Providers>
-        <Toaster />
+        <Toaster position="bottom-right" options={{
+          duration: 3000,
+          fill: "#171717",
+          roundness: 16,
+          styles: {
+            title: "text-foreground! normal-case",
+            description: "text-foreground/75! normal-case",
+            badge: "bg-foreground/10!",
+            button: "bg-foreground/10! hover:bg-foreground/15!",
+          },
+        }} />
       </body>
     </html>
   );

@@ -30,6 +30,7 @@ export interface CreateChannelResponse {
   data: {
     type: ChannelType;
     route: string;
+    extraRoute?: string;
     channel: Channel;
   };
 }
@@ -46,6 +47,9 @@ export interface Channel {
   groupOrServerLogo?: string;
   pinnedMessages?: MessageInterface[];
   createdAt: string;
+  serverInvitationLink?: { link: string, id: string };
+  channelMessageRooms?: { _id: string, name: string, type?: string }[]
+  channelCallRooms?: { _id: string, name: string }[]
 }
 
 export interface ChannelInitialState {
@@ -62,4 +66,9 @@ export interface ChannelDisplayData {
   memberCount?: number; // Add this for groups
   friend?: FriendInterface; // Add this for direct messages
   channel: Channel; // Keep reference to original channel
+}
+
+export enum ServerChannelType {
+  Text = "Text",
+  Voice = "Voice",
 }

@@ -1,5 +1,5 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { Channel } from "~/interfaces/channels.interface";
+import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.interface";
 import { MessageInterface, PinnedMessageInterface } from "~/interfaces/message.interface";
 import {
   FriendInterface,
@@ -133,6 +133,41 @@ export const userSlice = createSlice({
         channel._id === action.payload.channelId ? { ...channel, listActive: action.payload.listActive } : channel
       );
     },
+    addMembersToChannel: (state, action: PayloadAction<{ members: FriendInterface[], channelId: string }>) => {
+      state.channelsInfo = state.channelsInfo.map((channel) =>
+        channel._id === action.payload.channelId ? { ...channel, members: [...channel.members, ...action.payload.members] } : channel
+      );
+    },
+    addServerChannel: (state, action: PayloadAction<{ channelId: string, channelType: ServerChannelType, newChannel: { name: string, _id: string } }>) => {
+      state.channelsInfo = state.channelsInfo.map((channel) => {
+        if (channel._id === action.payload.channelId) {
+          if (channel.type === ChannelType.Server) {
+            const roomAlreadyExistsInText = channel.channelMessageRooms?.some((room) => room._id === action.payload.newChannel._id);
+            const roomAlreadyExistsInVoice = channel.channelCallRooms?.some((room) => room._id === action.payload.newChannel._id);
+
+            if (action.payload.channelType === ServerChannelType.Text && !roomAlreadyExistsInText) {
+              return {
+                ...channel,
+                channelMessageRooms: [...(channel.channelMessageRooms || []), action.payload.newChannel],
+              };
+            }
+
+            if (action.payload.channelType === ServerChannelType.Voice && !roomAlreadyExistsInVoice) {
+              return {
+                ...channel,
+                channelCallRooms: [...(channel.channelCallRooms || []), action.payload.newChannel],
+              };
+            }
+
+            return {
+              ...channel,
+            };
+          }
+          return channel;
+        }
+        return channel;
+      });
+    },
     updateChannelPinnedMessage: (state, action: PayloadAction<{ message: PinnedMessageInterface; isPinned: boolean }>) => {
       const { message, isPinned } = action.payload;
       const channelId = message.referenceId._id;
@@ -182,5 +217,7 @@ export const {
   addNotification,
   setChannelListActive,
   updateChannelPinnedMessage,
+  addMembersToChannel,
+  addServerChannel
 } = userSlice.actions;
 export default userSlice.reducer;

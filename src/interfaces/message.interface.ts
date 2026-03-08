@@ -5,6 +5,7 @@ import { JSONContent } from "@tiptap/react";
 export interface MessageInterface {
   _id: string;
   referenceId: string;
+  referenceMessageRoomId?: string;
   message: JSONContent;
   attachment: Attachment[];
   sentBy?: FriendInterface;
@@ -15,11 +16,13 @@ export interface MessageInterface {
   type: MessageType;
   replyMessageId?: MessageInterface;
   forwardMessageId?: string;
+  additionalData?: Channel;
 }
 
 export interface PinnedMessageInterface {
   _id: string;
   referenceId: Channel;
+  referenceMessageRoomId?: string;
   message: JSONContent;
   attachment: Attachment[];
   sentBy?: FriendInterface;
@@ -34,6 +37,7 @@ export interface PinnedMessageInterface {
 
 export interface AddMessageBody {
   referenceId: string;
+  referenceMessageRoomId?: string;
   message: JSONContent;
   attachment?: Attachment[];
   sentBy: string;
@@ -71,4 +75,5 @@ export enum MessageType {
   PINNED_MSG_SYSTEM = 'PinnedMessageSystem',
   CALL_END_MSG_SYSTEM = 'CallEndMessageSystem',
   CALL_MISSED_MSG_SYSTEM = 'CallMissedMessageSystem',
+  SERVER_INVITATION = 'ServerInvitation',
 }

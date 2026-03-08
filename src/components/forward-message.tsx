@@ -17,6 +17,7 @@ import { useAppSelector } from "~/redux/hooks"
 import { ScrollArea } from "./ui/scroll-area"
 import ReactionPicker from "./reaction-picker"
 import { getInitialsFallback } from "~/lib/utils"
+import { SHORT_LOGO_URL } from "~/constants/constants"
 
 const ForwardMessage: React.FC<{ message?: MessageInterface, imageMessage?: { originalMessageId: string, attachments: Attachment }, setIsForwardDialogOpen: (isForwardDialogOpen: boolean) => void }> = ({ message, imageMessage, setIsForwardDialogOpen }) => {
     const [sendMessage] = useSendMessageMutation()
@@ -163,7 +164,11 @@ const ForwardMessage: React.FC<{ message?: MessageInterface, imageMessage?: { or
                                 <div className="flex items-center gap-2">
                                     {channel.type === ChannelType.Direct ? (() => {
                                         return (
-                                            <Avatar className="size-6">
+                                            <Avatar className="size-6" style={
+                                                channel.directChannelOtherMember?.profilePicture === SHORT_LOGO_URL && channel.directChannelOtherMember?.profilePictureBannerColor
+                                                    ? { backgroundColor: channel.directChannelOtherMember.profilePictureBannerColor }
+                                                    : undefined
+                                            }>
                                                 <AvatarImage src={channel.directChannelOtherMember?.profilePicture || ""} alt={channel.directChannelOtherMember?.displayName || ""} />
                                                 <AvatarFallback>{getInitialsFallback(channel.directChannelOtherMember?.displayName || "")}</AvatarFallback>
                                                 <AvatarBadge className="size-2.5!" variant={channel.directChannelOtherMember?.status?.type} />

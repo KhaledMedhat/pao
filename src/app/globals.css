@@ -4,6 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --owner: oklch(0.6699 0.144564 70.6306);
   --cover-placeholder: oklch(0.2062 0.0073 196.71);
   --main-primary: oklch(0.2452 0.0075 285.83);
   --main-primary-foreground: oklch(0.2991 0.0089 285.85);
@@ -46,6 +47,7 @@
 }
 
 .dark {
+  --owner: oklch(0.6699 0.144564 70.6306);
   --cover-placeholder: oklch(0.2062 0.0073 196.71);
   --main-primary: oklch(0.2452 0.0075 285.83);
   --main-primary-foreground: oklch(0.2991 0.0089 285.85);
@@ -89,6 +91,7 @@
 
 @theme inline {
   --font-lato: "Lato", "Lato Fallback";
+  --color-owner: var(--owner);
   --color-cover-placeholder: var(--cover-placeholder);
   --color-main-primary: var(--main-primary);
   --color-main-primary-foreground: var(--main-primary-foreground);

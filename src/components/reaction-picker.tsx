@@ -49,7 +49,7 @@ const ReactionPicker: React.FC<{
             <PopoverTrigger asChild>
               {isMessageInput ?
                 <InputGroupButton onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave} variant="ghost" size="icon-sm" type="button" className="hover:scale-110 transition-all duration-200 z-30">
+                  onMouseLeave={handleMouseLeave} variant="ghost" size="icon-sm" type="button" className="hover:scale-110 transition-all duration-200">
                   {selectedEmoji ? (
                     <span className="transition-all duration-200 text-lg">{selectedEmoji}</span>
                   ) : (
@@ -63,7 +63,7 @@ const ReactionPicker: React.FC<{
                   variant="ghost"
                   size="icon-sm"
                   type="button"
-                  className="hover:scale-110 transition-all duration-200 z-30"
+                  className="hover:scale-110 transition-all duration-200"
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                 >

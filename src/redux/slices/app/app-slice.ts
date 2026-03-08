@@ -13,6 +13,8 @@ const initialState: AppInitialState = {
   currentChannelId: null,
   isReplying: false,
   replyingToMessage: null,
+  activeChannelRoom: null,
+  openServerInvitationDialog: false,
 };
 
 export const appSlice = createSlice({
@@ -49,6 +51,12 @@ export const appSlice = createSlice({
     setReplyingToMessage: (state, action: PayloadAction<MessageInterface | null>) => {
       state.replyingToMessage = action.payload;
     },
+    setActiveChannelRoom: (state, action: PayloadAction<{ _id: string, name: string, type?: string } | null>) => {
+      state.activeChannelRoom = action.payload;
+    },
+    setOpenServerInvitationDialog: (state, action: PayloadAction<boolean>) => {
+      state.openServerInvitationDialog = action.payload;
+    },
   },
 });
 
@@ -63,5 +71,7 @@ export const {
   setCurrentChannelId,
   setIsReplying,
   setReplyingToMessage,
+  setActiveChannelRoom,
+  setOpenServerInvitationDialog,
 } = appSlice.actions;
 export default appSlice.reducer;

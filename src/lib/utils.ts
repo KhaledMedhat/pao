@@ -1,7 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
-import { useCallback } from "react";
 import { Area } from "react-easy-crop";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { twMerge } from "tailwind-merge";
 import { getCookie } from "~/app/actions";
 import { OBSSESSION_PROMPTS } from "~/constants/constants";
@@ -10,10 +9,10 @@ import { FriendInterface, FriendInterfaceWithFriendIds, User } from "~/interface
 import { setUserLoggingInStatus } from "~/redux/slices/user/user-slice";
 import { store } from "~/redux/store";
 
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
 
 /**
  * Get the label of a channel type
@@ -319,9 +318,13 @@ export const scrollToMessage = (
 export const handleCopy = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+    sileo.success({
+      title: "Copied to clipboard",
+    });
   } catch {
-    toast.error("Failed to copy");
+    sileo.error({
+      title: "Failed to copy",
+    });
   }
 };
 

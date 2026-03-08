@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { Channel, CreateChannelBody, CreateChannelResponse, UpdateChannelBody } from "~/interfaces/channels.interface";
+import { Channel, CreateChannelBody, CreateChannelResponse, ServerChannelType, UpdateChannelBody } from "~/interfaces/channels.interface";
 import { authApi } from "./auth.api";
 import { AddMessageBody, MessageInterface, UpdateMessageBody } from "~/interfaces/message.interface";
 
@@ -42,12 +42,12 @@ export const channelApi = createApi({
     }),
     getChannelMessages: builder.query<
       { messages: MessageInterface[]; hasMore: boolean; total: number },
-      { channelId: string; limit?: number; before?: string }
+      { channelId: string; limit?: number; before?: string; referenceMessageRoomId?: string }
     >({
-      query: ({ channelId, limit = 30, before }) => ({
+      query: ({ channelId, limit = 30, before, referenceMessageRoomId }) => ({
         url: `/messages/get-messages/${channelId}`,
         method: "GET",
-        params: { limit, ...(before && { before }) },
+        params: { limit, ...(before && { before }), ...(referenceMessageRoomId && { referenceMessageRoomId }) },
       }),
     }),
     sendMessage: builder.mutation<MessageInterface, AddMessageBody>({
@@ -90,6 +90,33 @@ export const channelApi = createApi({
         body: args.reaction,
       }),
     }),
+    sendServerInvitation: builder.mutation<void, { sendTo: string; invitationLink: { link: string; id: string } }>({
+      query: (args) => ({
+        url: `/channels/send-server-invitation`,
+        method: "POST",
+        body: args,
+      }),
+    }),
+    joinServer: builder.mutation<Channel, { serverId: string }>({
+      query: (args) => ({
+        url: `/channels/join-server/${args.serverId}`,
+        method: "POST",
+      }),
+    }),
+    addGroupChannelMembers: builder.mutation<void, { channelId: string; memberIds: string[] }>({
+      query: (args) => ({
+        url: `/channels/join-group-request/${args.channelId}`,
+        method: "PATCH",
+        body: args.memberIds,
+      }),
+    }),
+    createServerChannel: builder.mutation<void, { serverId: string; payload: { channelName: string; channelType: ServerChannelType } }>({
+      query: (args) => ({
+        url: `/channels/add-server-channel/${args.serverId}`,
+        method: "POST",
+        body: args.payload,
+      }),
+    }),
   }),
 });
 
@@ -105,4 +132,8 @@ export const {
   usePinMessageMutation,
   useUnpinMessageMutation,
   useToggleReactionMutation,
+  useAddGroupChannelMembersMutation,
+  useSendServerInvitationMutation,
+  useJoinServerMutation,
+  useCreateServerChannelMutation,
 } = channelApi;

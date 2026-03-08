@@ -15,7 +15,6 @@ import { AnimatedBackground } from "~/components/ui/animated-background";
 import { signupStep1Schema, signupStep2Schema, type SignupStep1Values, type SignupStep2Values } from "~/lib/validation";
 import { useCreateAccountMutation } from "~/redux/apis/auth.api";
 import useUpload from "~/hooks/use-upload";
-import { toast } from "sonner";
 import { ConfigPrefix } from "~/interfaces/app.interface";
 import { Spinner } from "~/components/ui/spinner";
 import {
@@ -33,6 +32,7 @@ import {
 import Image from "next/image";
 import { SHORT_LOGO_URL } from "~/constants/constants";
 import { ImageCropperInline } from "~/components/image-cropper";
+import { sileo } from "sileo";
 
 export default function SignupPage() {
   const [step, setStep] = useState<number>(1);
@@ -135,8 +135,9 @@ export default function SignupPage() {
                 setStep1Data(null);
                 setProfileImageUrl(null);
                 router.push("/login");
-                toast.success("Account has been created", {
-                  description: <span>Your account has been created successfully 🎉</span>,
+                sileo.success({
+                  title: "Account has been created",
+                  description: "Your account has been created successfully 🎉",
                 });
               }
             });
@@ -163,8 +164,9 @@ export default function SignupPage() {
             setStep1Data(null);
             setProfileImageUrl(null);
             router.push(`/channels/${res.channelSlug}`);
-            toast.success("Account has been created", {
-              description: <span>Your account has been created successfully 🎉</span>,
+            sileo.success({
+              title: "Account has been created",
+              description: "Your account has been created successfully 🎉",
             });
           }
         });
@@ -194,8 +196,9 @@ export default function SignupPage() {
           setStep1Data(null);
           setProfileImageUrl(null);
           router.push("/login");
-          toast.success("Account has been created", {
-            description: <span>Your account has been created successfully 🎉</span>,
+          sileo.success({
+            title: "Account has been created",
+            description: "Your account has been created successfully 🎉",
           });
         }
       });

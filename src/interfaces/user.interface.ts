@@ -16,6 +16,7 @@ export interface User {
   displayName: string;
   username: string;
   email: string;
+  profilePictureBannerColor?: string;
   friends: FriendInterface[];
   pronouns: string;
   status: { type: StatusType; duration: StatusDuration };

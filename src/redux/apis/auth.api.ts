@@ -12,12 +12,14 @@ import {
   User,
   Notification,
   UpdateUserRequest,
+  FriendInterface,
 } from "~/interfaces/user.interface";
 import {
   addChannel,
   addFriendRequest,
+  addMembersToChannel,
   addNotification,
-  removeFriendRequest,
+  addServerChannel,
   setChannels,
   setFriendRequests,
   setUpdatedFriend,
@@ -26,10 +28,10 @@ import {
   updateChannel,
   updateChannelPinnedMessage,
 } from "~/redux/slices/user/user-slice";
-import { Channel, ChannelType } from "~/interfaces/channels.interface";
+import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.interface";
 import { socketService } from "~/lib/socket";
 import { getDirectMessageChannelOtherMember } from "~/lib/utils";
-import { MessageInterface, PinnedMessageInterface } from "~/interfaces/message.interface";
+import { PinnedMessageInterface } from "~/interfaces/message.interface";
 
 function isHydrateAction(action: Action): action is PayloadAction<RootState> {
   return action.type === HYDRATE;
@@ -158,8 +160,25 @@ export const authApi = createApi({
             };
             dispatch(addChannel(channelWithExtras));
           };
+
+          const handleNewGroupChannelCreation = (data: { groupChannel: Channel }) => {
+
+            dispatch(addChannel(data.groupChannel));
+          };
           const handleFriendRequestAcceptanceForNotification = (data: { notification: Notification }) => {
             dispatch(addNotification(data.notification));
+          };
+
+          const handleServerChannelCreation = (data: { channelId: string, channelType: ServerChannelType, newChannel: { name: string, _id: string } }) => {
+            dispatch(addServerChannel({ channelId: data.channelId, channelType: data.channelType, newChannel: data.newChannel }));
+          };
+
+          const handleJoiningGroupChannel = (data: { groupChannel: Channel }) => {
+            dispatch(addChannel(data.groupChannel));
+          };
+
+          const handleAddingGroupChannelMembers = (data: { groupChannelId: string, invitedMembers: FriendInterface[] }) => {
+            dispatch(addMembersToChannel({ members: data.invitedMembers, channelId: data.groupChannelId }));
           };
 
           const handleChannelUpdate = (data: { channel: Channel }) => {
@@ -173,7 +192,13 @@ export const authApi = createApi({
             dispatch(updateChannel(channelWithExtras));
           };
 
+          const handleServerJoin = (data: { serverChannel: Channel }) => {
+            dispatch(addChannel(data.serverChannel));
+          };
 
+          const handleServerNewJoining = (data: { joinedMember: FriendInterface, serverChannel: string }) => {
+            dispatch(addMembersToChannel({ members: [data.joinedMember], channelId: data.serverChannel }));
+          };
           const handlePinMessage = (data: { message: PinnedMessageInterface; isPinned: boolean }) => {
             dispatch(updateChannelPinnedMessage({ message: data.message, isPinned: data.isPinned }));
           };
@@ -188,6 +213,12 @@ export const authApi = createApi({
           socket?.on("pinMessage", handlePinMessage);
           socket?.on("unpinMessage", handleUnpinMessage);
           socket?.on("updateUser", handleUpdatedUser);
+          socket?.on("joinServer", handleServerJoin);
+          socket?.on("serverNewJoining", handleServerNewJoining);
+          socket?.on("addServerChannel", handleServerChannelCreation);
+          socket?.on("addGroupChannel", handleNewGroupChannelCreation);
+          socket?.on("joinGroupChannel", handleJoiningGroupChannel);
+          socket?.on("addGroupChannelMembers", handleAddingGroupChannelMembers);
           await cacheEntryRemoved;
           socket?.off("friendRequest", handleFriendRequest);
           socket?.off("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
@@ -196,6 +227,12 @@ export const authApi = createApi({
           socket?.off("pinMessage", handlePinMessage);
           socket?.off("unpinMessage", handleUnpinMessage);
           socket?.off("updateUser", handleUpdatedUser);
+          socket?.off("joinServer", handleServerJoin);
+          socket?.off("serverNewJoining", handleServerNewJoining);
+          socket?.off("addServerChannel", handleServerChannelCreation);
+          socket?.off("addGroupChannel", handleNewGroupChannelCreation);
+          socket?.off("joinGroupChannel", handleJoiningGroupChannel);
+          socket?.off("addGroupChannelMembers", handleAddingGroupChannelMembers);
         } catch (error) {
           console.error("Socket cache entry error:", error);
         }

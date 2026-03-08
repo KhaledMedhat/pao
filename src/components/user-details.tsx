@@ -19,9 +19,8 @@ import {
 } from "./ui/dropdown-menu";
 import { ChannelType } from "~/interfaces/channels.interface";
 import { useRouter } from "next/navigation";
-import { setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
+import { setActiveChannelRoom, setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
 import { ActiveUI } from "~/interfaces/app.interface";
-import { toast } from "sonner";
 import { NestErrorResponse } from "~/interfaces/error.interface";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
@@ -33,7 +32,6 @@ import { Input } from "./ui/input";
 import { useState } from "react";
 import { MessageType } from "~/interfaces/message.interface";
 import { useSendMessageMutation } from "~/redux/apis/channel.api";
-import { selectCurrentChannel } from "~/redux/slices/app/app-selector";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -41,6 +39,8 @@ import { Card, CardContent } from "./ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Separator } from "./ui/separator";
 import ObsessionBubble from "./obsession-bubble";
+import { sileo } from "sileo";
+import { SHORT_LOGO_URL } from "~/constants/constants";
 
 const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | "lg"; setDialogOpen?: (open: boolean) => void }> = ({
   user,
@@ -54,7 +54,6 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
   const currentUserChannelServers = currentUserChannels.filter((c) => c.type === ChannelType.Server);
   const mutualFriends = getMutualFriends(currentUser, user as unknown as FriendInterfaceWithFriendIds);
   const mutualServers = getMutualServers(currentUserChannels, user);
-  const currentChannel = useAppSelector(selectCurrentChannel);
   const [sendFriendRequest] = useSendFriendRequestMutation();
   const [removeFriend] = useRemoveFriendMutation();
   const [currentEmoji, setCurrentEmoji] = useState<string>("😊")
@@ -69,16 +68,20 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
   const onSendFriendRequestSubmit = async (username: string) => {
     try {
       await sendFriendRequest({ username, sender: currentUser }).unwrap();
-      toast.success("Friend Request sent successfully");
+      sileo.success({
+        title: "Friend Request sent successfully",
+      });
     } catch (error) {
       const errData = (error as FetchBaseQueryError).data as NestErrorResponse;
       if (errData?.error === "Conflict" || errData?.error === "Not Found") {
-        toast.error("Friend Request not sent", {
-          description: <span className="text-muted-foreground">{errData.message}</span>,
+        sileo.error({
+          title: "Friend Request not sent",
+          description: errData.message,
         });
       } else {
-        toast.error("Oops, something went wrong!", {
-          description: <span className="text-muted-foreground">{errData?.message || "An unexpected error occurred"}</span>,
+        sileo.error({
+          title: "Oops, something went wrong!",
+          description: errData?.message || "An unexpected error occurred",
         });
       }
     }
@@ -86,8 +89,9 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      if (newMessage.trim().length === 0) return;
       sendMessage({
-        referenceId: currentChannel?._id ?? "",
+        referenceId: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
         message: {
           type: "doc",
           content: [
@@ -112,7 +116,11 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
           <div className="relative w-full">
             <div className="h-40 w-full bg-cover-placeholder rounded-t-lg"></div>
             <div className="absolute -bottom-10 left-6">
-              <Avatar className="size-28">
+              <Avatar className="size-28" style={
+                user.profilePicture === SHORT_LOGO_URL && user.profilePictureBannerColor
+                  ? { backgroundColor: user.profilePictureBannerColor }
+                  : undefined
+              }>
                 <AvatarImage src={user.profilePicture} alt={user.displayName} />
                 <AvatarFallback>{getInitialsFallback(user.displayName)}</AvatarFallback>
                 <AvatarBadge className="size-7! ring-4 ring-main-primary" variant={user.status.type} />
@@ -241,71 +249,88 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
             </div>
           </div>
         </div>
-        {currentUserId !== user._id && <div className="w-full h-full">
-          <Tabs defaultValue="mutual-friends" className="h-full">
-            <TabsList>
-              <TabsTrigger value="mutual-friends">
-                {mutualFriends.length > 0 ? `${mutualFriends.length} Mutual Friends` : "Mutual Friends"}
-              </TabsTrigger>
-              <TabsTrigger value="mutual-servers">
-                {mutualServers.length > 0 ? `${mutualServers.length} Mutual Servers` : "Mutual Servers"}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="mutual-friends">
-              {mutualFriends.length > 0 ? (
-                mutualFriends.map((friend) => (
-                  <div className="flex items-center gap-2" key={friend._id}>
-                    <Avatar>
-                      <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
-                      <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
-                      <AvatarBadge className="size-2.5!" variant={friend.status.type} />
-                    </Avatar>
-                    <div className="flex items-center gap-1">
-                      <p className="font-semibold text-sm">{friend.displayName}</p>
+        {currentUserId !== user._id &&
+          <div className="w-full h-full">
+            <Tabs defaultValue="mutual-friends" className="h-full flex-col">
+              <TabsList variant="line">
+                <TabsTrigger value="mutual-friends">
+                  {mutualFriends.length > 0 ? `${mutualFriends.length} Mutual Friends` : "Mutual Friends"}
+                </TabsTrigger>
+                <TabsTrigger value="mutual-servers">
+                  {mutualServers.length > 0 ? `${mutualServers.length} Mutual Servers` : "Mutual Servers"}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="mutual-friends">
+                {mutualFriends.length > 0 ? (
+                  mutualFriends.map((friend) => (
+                    <div className="flex items-center gap-2" key={friend._id}>
+                      <Avatar style={
+                        friend.profilePicture === SHORT_LOGO_URL && friend.profilePictureBannerColor
+                          ? { backgroundColor: friend.profilePictureBannerColor }
+                          : undefined
+                      }>
+                        <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
+                        <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
+                        <AvatarBadge className="size-2.5!" variant={friend.status.type} />
+                      </Avatar>
+                      <div className="flex items-center gap-1">
+                        <p className="font-semibold text-sm">{friend.displayName}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <Empty className="w-full h-full flex items-center justify-center">
-                  <EmptyHeader>
-                    <EmptyMedia variant="default">
-                      <IconUserPlus className="size-12 text-muted-foreground" />
-                    </EmptyMedia>
-                    <EmptyTitle>No Mutual Friends</EmptyTitle>
-                    <EmptyDescription>
-                      There are no mutual friends between you and {user.displayName} yet. Start a conversation to find mutual friends.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              )}
-            </TabsContent>
-            <TabsContent value="mutual-servers">
-              {mutualServers.length > 0 ? (
-                mutualServers.map((server) => (
-                  <div className="flex items-center gap-2" key={server._id}>
-                    <Avatar>
-                      <AvatarImage src={server.groupOrServerLogo || ""} />
-                      <AvatarFallback>{getInitialsFallback(server.groupOrServerName || "")}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex items-center gap-1">
-                      <p className="font-semibold text-sm">{server.groupOrServerName}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <Empty className="w-full h-full flex items-center justify-cente">
-                  <EmptyHeader>
-                    <EmptyMedia variant="default">
-                      <IconAtOff className="size-12 text-muted-foreground" />
-                    </EmptyMedia>
-                    <EmptyTitle>No Mutual Servers</EmptyTitle>
-                    <EmptyDescription>There are no mutual servers between you and {user.displayName} yet.</EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>}
+                  ))
+                ) : (
+                  <Empty className="w-full h-full flex items-center justify-center">
+                    <EmptyHeader>
+                      <EmptyMedia variant="default">
+                        <IconUserPlus className="size-12 text-muted-foreground" />
+                      </EmptyMedia>
+                      <EmptyTitle>No Mutual Friends</EmptyTitle>
+                      <EmptyDescription>
+                        There are no mutual friends between you and {user.displayName} yet. Start a conversation to find mutual friends.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )}
+              </TabsContent>
+              <TabsContent value="mutual-servers">
+                {mutualServers.length > 0 ? (
+                  mutualServers.map((server) => (
+                    <Button
+                      onClick={() => {
+                        dispatch(setCurrentChannelId(server._id));
+                        dispatch(setActiveUI(ActiveUI.SERVER));
+                        dispatch(setActiveChannelRoom({ _id: server.channelMessageRooms?.find((room) => room.type === "Primary")?._id || "", name: server.channelMessageRooms?.find((room) => room.type === "Primary")?.name || "", type: "Primary" }));
+                        router.push(`/server/${server._id}`)
+                      }}
+                      variant="ghost"
+                      className="flex items-center gap-2 w-full justify-start py-6"
+                      key={server._id}>
+                      <Avatar>
+                        <AvatarImage className="rounded-md" src={server.groupOrServerLogo || ""} />
+                        <AvatarFallback>{getInitialsFallback(server.groupOrServerName || "")}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col items-start">
+                        <p className="font-semibold text-sm text-foreground">{server.groupOrServerName}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {server.members.find((member) => member._id === server.createdBy)?.displayName || "Unknown"}
+                        </p>
+                      </div>
+                    </Button>
+                  ))
+                ) : (
+                  <Empty className="w-full h-full flex items-center justify-cente">
+                    <EmptyHeader>
+                      <EmptyMedia variant="default">
+                        <IconAtOff className="size-12 text-muted-foreground" />
+                      </EmptyMedia>
+                      <EmptyTitle>No Mutual Servers</EmptyTitle>
+                      <EmptyDescription>There are no mutual servers between you and {user.displayName} yet.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>}
       </div>
     )
   }
@@ -561,7 +586,11 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                     </div>}
                   <div className="absolute -bottom-10 left-4">
                     <DialogTrigger asChild>
-                      <Avatar className="size-20 cursor-pointer">
+                      <Avatar className="size-20 cursor-pointer" style={
+                        user.profilePicture === SHORT_LOGO_URL && user.profilePictureBannerColor
+                          ? { backgroundColor: user.profilePictureBannerColor }
+                          : undefined
+                      }>
                         <AvatarImage
                           className="hover:grayscale transition-all duration-300"
                           src={user.profilePicture}

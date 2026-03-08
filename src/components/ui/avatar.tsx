@@ -29,12 +29,15 @@ function Avatar({
 
 function AvatarImage({
   className,
+  src,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  const normalizedSrc = typeof src === "string" && src.trim() === "" ? undefined : src
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn("aspect-square size-full overflow-hidden rounded-full", className)}
+      src={normalizedSrc}
       {...props}
     />
   )
@@ -106,6 +109,24 @@ function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+function AvatarGroupGrid({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="avatar-group-grid"
+      className={cn(
+        "group/avatar-group-grid relative size-9 shrink-0",
+        "*:data-[slot=avatar]:absolute *:data-[slot=avatar]:ring-background *:data-[slot=avatar]:ring-3",
+        "[&>[data-slot=avatar]:nth-child(1)]:left-0 [&>[data-slot=avatar]:nth-child(1)]:top-0 [&>[data-slot=avatar]:nth-child(1)]:z-10 [&>[data-slot=avatar]:nth-child(1)]:size-7",
+        "[&>[data-slot=avatar]:nth-child(2)]:bottom-0 [&>[data-slot=avatar]:nth-child(2)]:right-0 [&>[data-slot=avatar]:nth-child(2)]:z-20 [&>[data-slot=avatar]:nth-child(2)]:size-6",
+        "[&>[data-slot=avatar]:nth-child(3)]:right-0 [&>[data-slot=avatar]:nth-child(3)]:top-0 [&>[data-slot=avatar]:nth-child(3)]:z-15 [&>[data-slot=avatar]:nth-child(3)]:size-5",
+        "[&>[data-slot=avatar]:nth-child(4)]:bottom-0 [&>[data-slot=avatar]:nth-child(4)]:left-0 [&>[data-slot=avatar]:nth-child(4)]:z-15 [&>[data-slot=avatar]:nth-child(4)]:size-5",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function AvatarGroupCount({
   className,
   ...props
@@ -128,5 +149,6 @@ export {
   AvatarFallback,
   AvatarBadge,
   AvatarGroup,
+  AvatarGroupGrid,
   AvatarGroupCount,
 }

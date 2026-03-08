@@ -18,7 +18,7 @@ import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import { socketService } from "~/lib/socket";
-import { selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
+import { selectActiveChannelRoom, selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
 import { setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
 import Link from "next/link";
 import { ConfigPrefix, RecordingState } from "~/interfaces/app.interface";
@@ -27,6 +27,8 @@ import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Channel, ChannelType } from "~/interfaces/channels.interface";
+import { SHORT_LOGO_URL } from "~/constants/constants";
 
 interface MentionListProps {
   items: FriendInterface[];
@@ -97,7 +99,11 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(({ items, comma
           )}
         >
           <div className="flex items-center gap-2">
-            <Avatar>
+            <Avatar style={
+              item.profilePicture === SHORT_LOGO_URL && item.profilePictureBannerColor
+                ? { backgroundColor: item.profilePictureBannerColor }
+                : undefined
+            }>
               <AvatarImage src={item.profilePicture} alt={item.displayName} />
               <AvatarFallback>{getInitialsFallback(item.displayName)}</AvatarFallback>
               <AvatarBadge className="size-2.5!" variant={item.status.type} />
@@ -119,7 +125,7 @@ interface MessageInputProps {
   disabled?: boolean;
   className?: string;
   value?: string;
-  channelId: string;
+  channel: Channel;
   isEditing: boolean;
   messageId?: string;
   setIsEditing?: (isEditing: boolean) => void;
@@ -127,7 +133,7 @@ interface MessageInputProps {
   onRemovePendingMessage?: (pendingId: string) => void;
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggestions = [], disabled = false, className, channelId, value, isEditing, messageId, setIsEditing, onAddPendingMessage, onRemovePendingMessage }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggestions = [], disabled = false, className, channel, value, isEditing, messageId, setIsEditing, onAddPendingMessage, onRemovePendingMessage }) => {
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const dispatch = useAppDispatch();
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -150,7 +156,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { startUpload } = useUpload(ConfigPrefix.CHAT_INPUT_UPLOADER)
-
+  const currentActiveChannelRoom = useAppSelector(selectActiveChannelRoom);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -425,7 +431,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
           }
 
           await sendMessage({
-            referenceId: channelId,
+            referenceId: channel?._id,
             message: {
               type: "doc", content: [
                 { type: "paragraph", content: [{ type: "text", text: "" }] },
@@ -453,7 +459,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     setDuration(0)
     waveformBarsRef.current = []
     setWaveformBars([])
-  }, [duration, startUpload, channelId, currentUserInfo._id, sendMessage, stopTimer, stopVisualizer])
+  }, [duration, startUpload, channel?._id, currentUserInfo._id, sendMessage, stopTimer, stopVisualizer])
 
 
   const editor = useEditor({
@@ -463,20 +469,20 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
         socket?.emit("typing", {
           user: currentUserInfo,
           isTyping: true,
-          channelId
+          channelId: channel?._id
         })
         setTimeout(() => {
           socket?.emit("typing", {
             user: currentUserInfo,
             isTyping: false,
-            channelId
+            channelId: channel?._id
           })
         }, 2000)
       } else {
         socket?.emit("typing", {
           user: currentUserInfo,
           isTyping: false,
-          channelId
+          channelId: channel?._id
         });
       }
     },
@@ -537,7 +543,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
       attributes: {
         class: cn(
           "prose prose-sm dark:prose-invert max-w-none focus:outline-none px-3 leading-relaxed",
-          "[&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:h-0"
+          "[&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:max-w-full [&_.is-editor-empty:first-child::before]:whitespace-normal [&_.is-editor-empty:first-child::before]:[overflow-wrap:anywhere]"
         ),
       },
       handleKeyDown: (view, event) => {
@@ -614,13 +620,14 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
       setIsEditing?.(false);
       await updateMessage({
         messageId,
-        body: { referenceId: channelId, updateMessageDto: { message: json } },
+        body: { referenceId: channel?._id, updateMessageDto: { message: json } },
       });
     } else if (isReplying && replyingToMessage) {
       dispatch(setIsReplying(false));
       dispatch(setReplyingToMessage(null));
       await sendMessage({
-        referenceId: channelId,
+        referenceId: channel?._id,
+        referenceMessageRoomId: channel?.type === ChannelType.Server ? currentActiveChannelRoom?._id : undefined,
         message: json,
         sentBy: currentUserInfo._id,
         type: MessageType.REPLY,
@@ -629,14 +636,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
       });
     } else {
       await sendMessage({
-        referenceId: channelId,
+        referenceId: channel?._id,
+        referenceMessageRoomId: channel?.type === ChannelType.Server ? currentActiveChannelRoom?._id : undefined,
         message: json,
         sentBy: currentUserInfo._id,
         type: MessageType.TEXT,
         attachment: uploadedFiles.length > 0 ? uploadedFiles : undefined,
       });
     }
-  }, [editor, attachments, startUpload, isEditing, messageId, setIsEditing, updateMessage, channelId, isReplying, replyingToMessage, dispatch, sendMessage, currentUserInfo._id, onAddPendingMessage, onRemovePendingMessage]);
+  }, [editor, attachments, startUpload, isEditing, messageId, setIsEditing, updateMessage, channel?._id, isReplying, replyingToMessage, dispatch, sendMessage, currentUserInfo._id, onAddPendingMessage, onRemovePendingMessage]);
 
   return (
     <Popover open={mentionOpen}>

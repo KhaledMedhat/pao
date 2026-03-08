@@ -9,7 +9,7 @@ import { User } from "~/interfaces/user.interface";
 
 const MESSAGES_PER_PAGE = 42;
 
-export function useChannelMessages(channelId: string) {
+export function useChannelMessages(channelId: string, referenceMessageRoomId?: string) {
     const [messages, setMessages] = useState<MessageInterface[]>([]);
     const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
     const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
@@ -25,13 +25,13 @@ export function useChannelMessages(channelId: string) {
     // Use ref to access current messages without adding to dependencies
     const messagesRef = useRef<MessageInterface[]>([]);
 
-    // Reset state when channel changes
+    // Reset state when channel or room changes
     useEffect(() => {
         setIsSomeoneTyping([]);
         setMessages([]);
         messagesRef.current = [];
         setHasMore(true);
-    }, [channelId]);
+    }, [channelId, referenceMessageRoomId]);
 
     // Keep messagesRef in sync with messages state
     useEffect(() => {
@@ -50,7 +50,8 @@ export function useChannelMessages(channelId: string) {
             try {
                 const result = await fetchMessages({
                     channelId,
-                    limit: MESSAGES_PER_PAGE
+                    limit: MESSAGES_PER_PAGE,
+                    referenceMessageRoomId
                 }).unwrap();
 
                 setMessages(result.messages);
@@ -65,7 +66,7 @@ export function useChannelMessages(channelId: string) {
         };
 
         loadInitialMessages();
-    }, [channelId, fetchMessages]);
+    }, [channelId, fetchMessages, referenceMessageRoomId]);
 
     // Load more (older) messages - uses messagesRef to avoid recreating on every messages change
     const loadMoreMessages = useCallback(async () => {
@@ -81,6 +82,7 @@ export function useChannelMessages(channelId: string) {
                 channelId,
                 limit: MESSAGES_PER_PAGE,
                 before: oldestMessage._id,
+                referenceMessageRoomId
             }).unwrap();
 
             // Prepend older messages, filtering out any duplicates
@@ -95,7 +97,7 @@ export function useChannelMessages(channelId: string) {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [channelId, fetchMessages, hasMore, isLoadingMore]);
+    }, [channelId, fetchMessages, hasMore, isLoadingMore, referenceMessageRoomId]);
 
     // Socket event handlers
     useEffect(() => {
@@ -129,7 +131,10 @@ export function useChannelMessages(channelId: string) {
         // Handle new message - backend sends { message: MessageInterface }
         const handleNewMessage = (data: { message: MessageInterface }) => {
             const newMessage = data.message;
-            if (newMessage.referenceId === channelId) {
+            const isSameChannel = newMessage.referenceId === channelId;
+            const isSameRoom = !referenceMessageRoomId || newMessage.referenceMessageRoomId === referenceMessageRoomId;
+
+            if (isSameChannel && isSameRoom) {
                 setMessages((prev) => {
                     const exists = prev.some((msg) => msg._id === newMessage._id);
                     if (exists) return prev;
@@ -260,7 +265,7 @@ export function useChannelMessages(channelId: string) {
             socket.off("typing", handleIsTyping);
 
         };
-    }, [channelId, socket, isConnected]);
+    }, [channelId, socket, isConnected, referenceMessageRoomId]);
 
     // Manual handlers if needed
     const addMessage = useCallback((message: MessageInterface) => {
@@ -287,7 +292,8 @@ export function useChannelMessages(channelId: string) {
         try {
             const result = await fetchMessages({
                 channelId,
-                limit: MESSAGES_PER_PAGE
+                limit: MESSAGES_PER_PAGE,
+                referenceMessageRoomId,
             }).unwrap();
 
             setMessages(result.messages);
@@ -297,7 +303,7 @@ export function useChannelMessages(channelId: string) {
         } finally {
             setIsLoadingInitial(false);
         }
-    }, [channelId, fetchMessages]);
+    }, [channelId, fetchMessages, referenceMessageRoomId]);
 
     return {
         messages,

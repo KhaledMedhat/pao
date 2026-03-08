@@ -1,3 +1,4 @@
+import { createSelector } from "@reduxjs/toolkit";
 import { RootState } from "~/redux/store";
 
 export const selectActiveUI = (state: RootState) => state.app.activeUI;
@@ -10,9 +11,31 @@ export const selectIsPinnedMessagesOpen = (state: RootState) => state.app.isPinn
 export const selectIsReplying = (state: RootState) => state.app.isReplying;
 export const selectReplyingToMessage = (state: RootState) => state.app.replyingToMessage;
 export const selectIsUploadingFile = (state: RootState) => state.app.isUploadingFile;
-// Derived selector - single source of truth from channelsInfo
-export const selectCurrentChannel = (state: RootState) => {
-  const currentChannelId = state.app.currentChannelId;
-  if (!currentChannelId) return null;
-  return state.user.channelsInfo.find((channel) => channel._id === currentChannelId) ?? null;
-};
+export const selectActiveChannelRoom = (state: RootState) => state.app.activeChannelRoom;
+export const selectOpenServerInvitationDialog = (state: RootState) => state.app.openServerInvitationDialog;
+export const selectCurrentChannel = createSelector(
+  [selectCurrentChannelId, (state: RootState) => state.user.channelsInfo],
+  (currentChannelId, channelsInfo) => {
+    if (!currentChannelId) return null;
+    return channelsInfo.find((channel) => channel._id === currentChannelId) ?? null;
+  }
+);
+
+export const selectDashboardHeaderState = createSelector(
+  [
+    selectActiveUI,
+    selectCurrentChannel,
+    selectShowChannelDetails,
+    selectIsPinnedMessagesOpen,
+    selectDashboardFriendsHeaderActiveUI,
+    selectDashboardMessageRequestsHeaderActiveUI,
+  ],
+  (activeUI, currentChannel, showChannelDetails, isPinnedMessagesOpen, friendsHeaderActiveUI, messageRequestsHeaderActiveUI) => ({
+    activeUI,
+    currentChannel,
+    showChannelDetails,
+    isPinnedMessagesOpen,
+    friendsHeaderActiveUI,
+    messageRequestsHeaderActiveUI,
+  })
+);

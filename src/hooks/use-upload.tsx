@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { ConfigPrefix } from "~/interfaces/app.interface";
 import { useUploadThing } from "~/lib/uploadthing";
 
@@ -9,7 +9,10 @@ const useUpload = (configPrefix: ConfigPrefix, setIsUploadingLoading?: (isUpload
     },
     onUploadError: (error: Error) => {
       setIsUploadingLoading?.(false);
-      toast.error(error.message);
+      sileo.error({
+        title: "Failed to upload file",
+        description: error.message,
+      });
     },
     onUploadBegin: () => {
       setIsUploadingLoading?.(true);

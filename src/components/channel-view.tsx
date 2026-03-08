@@ -1,37 +1,46 @@
 "use client";
 
 import { useAppSelector } from "~/redux/hooks";
-import { selectCurrentChannel, selectIsReplying, selectReplyingToMessage, selectShowChannelDetails } from "~/redux/slices/app/app-selector";
+import { selectActiveChannelRoom, selectCurrentChannel, selectIsReplying, selectReplyingToMessage, selectShowChannelDetails } from "~/redux/slices/app/app-selector";
 import { selectCurrentUserChannels, selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import MessageInput from "./message-input";
-import { ChannelType } from "~/interfaces/channels.interface";
+import { Channel, ChannelType } from "~/interfaces/channels.interface";
 import { FriendInterface } from "~/interfaces/user.interface";
 import { ScrollArea } from "./ui/scroll-area";
 import Message from "./message";
 import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.interface";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { Button } from "./ui/button";
-import { IconChevronDown, IconCrown } from "@tabler/icons-react";
+import { IconChevronDown, IconCrownFilled, IconIdBadge } from "@tabler/icons-react";
 import { MessageSkeletonList, LoadingMoreSkeleton } from "./message-skeleton";
 import { useScrollContext } from "~/contexts/scroll-context";
 import { JSONContent } from "@tiptap/react";
 import UserDetails from "./user-details";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Avatar, AvatarImage, AvatarFallback, AvatarBadge, AvatarGroupCount, AvatarGroup } from "./ui/avatar";
-import { getChannelTypeLabel, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
-import { WELCOMING_FIG } from "~/constants/constants";
-import Image from "next/image";
+import { Avatar, AvatarImage, AvatarFallback, AvatarBadge, AvatarGroup } from "./ui/avatar";
+import { cn, getChannelTypeLabel, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
+import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuItem, ContextMenuRadioItem, ContextMenuSeparator, ContextMenuTrigger } from "./ui/context-menu";
+import { StatusType } from "~/interfaces/user.interface";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { Field } from "./ui/field";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
+import ChannelStarterMessage from "./channel-starter-message";
+import { SHORT_LOGO_URL } from "~/constants/constants";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
   const showChannelDetails = useAppSelector(selectShowChannelDetails);
+  const currentActiveChannelRoom = useAppSelector(selectActiveChannelRoom);
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const currentUserChannels = useAppSelector(selectCurrentUserChannels);
-  const { messages, isLoading, isLoadingMore, hasMore, loadMoreMessages, isSomeoneTyping } = useChannelMessages(channelId);
+  const { messages, isLoading, isLoadingMore, hasMore, loadMoreMessages, isSomeoneTyping } = useChannelMessages(channelId, currentActiveChannelRoom?._id);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,6 +53,7 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const mutualServers = getMutualServers(currentUserChannels, currentChannel?.directChannelOtherMember);
   const [removeFriend] = useRemoveFriendMutation();
   const [addFriend] = useSendFriendRequestMutation();
+
   const inputPlaceholder = useMemo(() => {
     if (currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember) {
       return `Message @${currentChannel.directChannelOtherMember.displayName}`;
@@ -51,8 +61,11 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
     if (currentChannel?.type === ChannelType.Group) {
       return `Message @${currentChannel.groupOrServerName}`;
     }
+    if (currentChannel?.type === ChannelType.Server) {
+      return `Message #${currentActiveChannelRoom?.name}`;
+    }
     return "Message";
-  }, [currentChannel]);
+  }, [currentChannel, currentActiveChannelRoom]);
 
   // Pending messages for optimistic UI (shown while attachments are uploading)
   const [pendingMessages, setPendingMessages] = useState<MessageInterface[]>([]);
@@ -219,14 +232,12 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
     loadMoreMessages,
     scrollContainerRef: scrollViewportRef,
   });
-
   // Memoize processed messages to avoid recalculating on every render
   const processedMessages = useMemo(() => processMessages(allMessages || []), [allMessages]);
-
   return (
-    <section className="flex-1 flex flex-row-reverse h-full min-h-0 overflow-hidden pb-2 pt-2 gap-1">
+    <section className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-row-reverse gap-1 overflow-x-hidden overflow-y-hidden pb-2 pt-2">
       {showChannelDetails &&
-        <aside className="h-full bg-main-primary w-1/3 rounded-md shrink-0">
+        <aside className="h-full w-[350px] shrink-0 overflow-x-hidden rounded-md bg-main-primary mr-2">
           {currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember && <UserDetails user={currentChannel?.directChannelOtherMember || currentUserInfo} size="md" />}
 
           {currentChannel?.type === ChannelType.Group &&
@@ -234,35 +245,182 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
               <p className="text-sm font-semibold text-muted-foreground">Members &#8212; {currentChannel?.members.length}</p>
               <div className="flex flex-col gap-2">
                 {currentChannel?.members.map((member) => (
-                  <Popover key={member._id}>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-start h-11">
-                        <Avatar className="size-8">
-                          <AvatarImage src={member.profilePicture} />
-                          <AvatarFallback>{getInitialsFallback(member.displayName)}</AvatarFallback>
-                          <AvatarBadge className="size-2!" variant={member.status.type} />
-                        </Avatar>
-                        {member.displayName}
-                        {currentChannel.createdBy === member._id && <IconCrown size={16} color="gold" />}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
-                      <UserDetails user={member} size="sm" />
-                    </PopoverContent>
-                  </Popover>
+                  <ContextMenu key={member._id}>
+                    <Dialog>
+                      <Popover>
+                        <ContextMenuTrigger asChild>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="w-full justify-start h-11 px-3">
+                              <Avatar className="size-8" style={
+                                member.profilePicture === SHORT_LOGO_URL && member.profilePictureBannerColor
+                                  ? { backgroundColor: member.profilePictureBannerColor }
+                                  : undefined
+                              }>
+                                <AvatarImage src={member.profilePicture} />
+                                <AvatarFallback>{getInitialsFallback(member.displayName)}</AvatarFallback>
+                                <AvatarBadge className="size-2!" variant={member.status.type} />
+                              </Avatar>
+                              {member.displayName}
+                              {currentChannel.createdBy === member._id &&
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <IconCrownFilled size={16} color="var(--owner)" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Group Owner
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              }
+                            </Button>
+                          </PopoverTrigger>
+                        </ContextMenuTrigger>
+                        <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
+                          <UserDetails user={member} size="sm" />
+                        </PopoverContent>
+                      </Popover>
+                      <ContextMenuContent>
+                        <DialogTrigger asChild>
+                          <ContextMenuItem>
+                            Profile
+                          </ContextMenuItem>
+                        </DialogTrigger>
+                      </ContextMenuContent>
+                      <DialogContent className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">
+                        <VisuallyHidden.Root>
+                          <DialogHeader>
+                            <DialogTitle></DialogTitle>
+                            <DialogDescription></DialogDescription>
+                          </DialogHeader>
+                        </VisuallyHidden.Root>
+                        <UserDetails user={member} size="lg" />
+                      </DialogContent>
+                    </Dialog>
+                  </ContextMenu>
                 ))}
               </div>
             </div>
           }
+
+          {currentChannel?.type === ChannelType.Server && (() => {
+            const onlineMembers = currentChannel.members.filter((m) => m.status.type !== StatusType.Invisible);
+            const offlineMembers = currentChannel.members.filter((m) => m.status.type === StatusType.Invisible);
+
+            const renderMember = (member: FriendInterface) => (
+              <ContextMenu key={member._id}>
+                <Dialog>
+                  <Popover>
+                    <ContextMenuTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" className="w-full justify-start h-11">
+                          <Avatar className="size-8" style={
+                            member.profilePicture === SHORT_LOGO_URL && member.profilePictureBannerColor
+                              ? { backgroundColor: member.profilePictureBannerColor }
+                              : undefined
+                          }>
+                            <AvatarImage src={member.profilePicture} />
+                            <AvatarFallback>{getInitialsFallback(member.displayName)}</AvatarFallback>
+                            <AvatarBadge className="size-2.5! ring-4 ring-main-primary" variant={member.status?.type} />
+                          </Avatar>
+                          {member.displayName}
+                          {currentChannel.createdBy === member._id &&
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex">
+                                    <IconCrownFilled size={16} color="var(--owner)" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Server Owner
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          }
+                        </Button>
+                      </PopoverTrigger>
+                    </ContextMenuTrigger>
+                    <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
+                      <UserDetails user={member} size="sm" />
+                    </PopoverContent>
+                  </Popover>
+                  <ContextMenuContent className="w-48">
+                    <DialogTrigger asChild>
+                      <ContextMenuItem>
+                        Profile
+                      </ContextMenuItem>
+                    </DialogTrigger>
+                    <ContextMenuItem >
+                      Mention
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <Field orientation="horizontal" className="w-full justify-between p-2 hover:bg-muted cursor-pointer rounded-md">
+                      <Label htmlFor="mute-checkbox">Mute</Label>
+                      <Checkbox id="mute-checkbox" name="mute-checkbox" className="size-5" />
+                    </Field>
+                    <Field orientation="horizontal" className="w-full justify-between p-2 hover:bg-muted cursor-pointer rounded-md">
+                      <Label htmlFor="defean-checkbox">Defean</Label>
+                      <Checkbox id="defean-checkbox" name="defean-checkbox" className="size-5" />
+                    </Field>
+                    <ContextMenuSeparator />
+
+                    <ContextMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(member._id)}>
+                      Copy User ID <IconIdBadge />
+                    </ContextMenuItem>
+                    {isTheUserFriend(currentUserInfo, member._id) ? (
+                      <ContextMenuItem className="text-destructive" onClick={() => removeFriend({ friendId: member._id })}>
+                        Remove Friend
+                      </ContextMenuItem>
+                    ) : member._id !== currentUserInfo?._id && (
+                      <ContextMenuItem onClick={() => addFriend({ sender: currentUserInfo as FriendInterface, username: member.username })}>
+                        Add Friend
+                      </ContextMenuItem>
+                    )}
+                  </ContextMenuContent>
+                  <DialogContent className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">
+                    <VisuallyHidden.Root>
+                      <DialogHeader>
+                        <DialogTitle></DialogTitle>
+                        <DialogDescription></DialogDescription>
+                      </DialogHeader>
+                    </VisuallyHidden.Root>
+                    <UserDetails user={member} size="lg" />
+                  </DialogContent>
+                </Dialog>
+              </ContextMenu>
+            );
+
+            return (
+              <div className="w-full h-full p-4 flex flex-col gap-4">
+                {onlineMembers.length > 0 && (
+                  <>
+                    <p className="text-sm font-semibold text-muted-foreground">Online &#8212; {onlineMembers.length}</p>
+                    <div className="flex flex-col gap-1">
+                      {onlineMembers.map(renderMember)}
+                    </div>
+                  </>
+                )}
+                {offlineMembers.length > 0 && (
+                  <>
+                    <p className="text-sm font-semibold text-muted-foreground mt-2">Offline &#8212; {offlineMembers.length}</p>
+                    <div className="flex flex-col gap-1 opacity-50">
+                      {offlineMembers.map(renderMember)}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </aside>
       }
-      <div className="relative flex flex-col w-full h-full min-w-0">
+      <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         {/* Messages area - scrollable */}
-        <ScrollArea className="h-[calc(100vh-100px)]" onScroll={handleScroll} viewportRef={scrollViewportRef}>
+        <ScrollArea className="h-[calc(100vh-120px)] w-full min-w-0" onScroll={handleScroll} viewportRef={scrollViewportRef}>
           {isLoading ? (
             <MessageSkeletonList count={8} />
           ) : (
-            <div className={`${isReplying && replyingToMessage ? "pb-24" : "pb-14"}`}>
+            <div className={cn("min-w-0 max-w-full", isReplying && replyingToMessage ? "pb-24" : "pb-14")}>
               {/* Loading more skeleton at top */}
               {isLoadingMore && <LoadingMoreSkeleton />}
 
@@ -273,82 +431,46 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                 </div>
               )}
 
-              <div className="p-4 pt-0">
-                {/* Welcoming message if the channel is new or have 0 messages */}
+              <div className="w-full min-w-0 max-w-full p-4 pt-0">
 
-                {processedMessages.length === 0 ?
-                  <div className="flex flex-col items-start justify-center min-h-[40vh] gap-2 p-14">
-                    <Avatar className="size-26">
-                      <AvatarImage src={currentChannel?.directChannelOtherMember?.profilePicture} />
-                      <AvatarFallback>
-                        {getInitialsFallback(currentChannel?.directChannelOtherMember?.displayName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col gap-2 items-start mt-10">
-                      <p className="text-3xl font-bold">{currentChannel?.directChannelOtherMember?.displayName}</p>
-                      <p className="text-xl">{currentChannel?.directChannelOtherMember?.username}</p>
-                    </div>
-                    <p className="text-xl">This is the beginning of your {getChannelTypeLabel(currentChannel?.type)} history with <span className="font-bold">{currentChannel?.directChannelOtherMember?.displayName}</span>.</p>
+                {/* Welcoming message */}
+                {currentChannel && <ChannelStarterMessage channel={currentChannel} currentUserChannels={currentUserChannels} currentUserInfo={currentUserInfo} messagesLength={processedMessages.length} />}
 
-                    <div className="flex item-center justify-between mt-4 gap-2 w-2xl">
-                      {mutualServers.length > 0 ? (
-                        <div className="flex items-center gap-2">
-                          <AvatarGroup className="grayscale">
-                            {mutualServers.slice(0, 3).map((server) => (
-                              <Avatar key={server._id}>
-                                <AvatarImage src={server.groupOrServerLogo || ""} />
-                                <AvatarFallback>{getInitialsFallback(server.groupOrServerName || "")}</AvatarFallback>
-                              </Avatar>
-                            ))}
-                          </AvatarGroup>
-                          <p className="flex items-center text-sm">{mutualServers.length} Mutual Servers</p>
+                {processedMessages.map((item, index) => (
+                  <div key={item.type === "date-separator" ? `date-${index}` : item.message._id}>
+                    {item.type === "date-separator" ? (
+                      <div className="flex items-center my-2 mx-4">
+                        <div className="flex-1 h-px bg-muted-foreground/20"></div>
+                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mx-2">
+                          {new Date(item.date).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </div>
-                      ) : <p className="self-center">No servers in common</p>}
-                      {isTheUserFriend(currentUserInfo, currentChannel?.directChannelOtherMember?._id || "") ? (
-                        <Button variant="outline" size="lg" onClick={() => removeFriend({ friendId: currentChannel?.directChannelOtherMember?._id || "" })}>
-                          Remove Friend
-                        </Button>
-                      ) : <Button variant="default" size="lg" onClick={() => addFriend({ sender: currentUserInfo, username: currentChannel?.directChannelOtherMember?.username || "" })}>
-                        Add Friend
-                      </Button>}
-                    </div>
+                        <div className="flex-1 h-px bg-muted-foreground/20"></div>
+                      </div>
+                    ) : (
+                      <Message
+                        key={item.message._id}
+                        message={item.message}
+                        showHeader={item.showHeader}
+                        isHovered={hoveredMessageId === item.message._id}
+                        isHighlighted={highlightedMessageId === item.message._id}
+                        onHover={handleMessageHover}
+                        onLeave={handleMessageLeave}
+                        channel={currentChannel || undefined}
+                        onScrollToMessage={scrollToMessage}
+                      />
+                    )}
                   </div>
-
-                  : processedMessages.map((item, index) => (
-                    <div key={item.type === "date-separator" ? `date-${index}` : item.message._id}>
-                      {item.type === "date-separator" ? (
-                        <div className="flex items-center my-2 mx-4">
-                          <div className="flex-1 h-px bg-muted-foreground/20"></div>
-                          <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mx-2">
-                            {new Date(item.date).toLocaleDateString("en-US", {
-                              month: "long",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </div>
-                          <div className="flex-1 h-px bg-muted-foreground/20"></div>
-                        </div>
-                      ) : (
-                        <Message
-                          key={item.message._id}
-                          message={item.message}
-                          showHeader={item.showHeader}
-                          isHovered={hoveredMessageId === item.message._id}
-                          isHighlighted={highlightedMessageId === item.message._id}
-                          onHover={handleMessageHover}
-                          onLeave={handleMessageLeave}
-                          channel={currentChannel || undefined}
-                          onScrollToMessage={scrollToMessage}
-                        />
-                      )}
-                    </div>
-                  ))}
+                ))}
               </div>
             </div>
           )}
         </ScrollArea>
         {/* Message input - fixed at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 px-2">
+        <div className="absolute bottom-2 left-0 right-0 px-2">
           {isSomeoneTyping.length > 0 && isSomeoneTyping.some(user => user.isTyping) && (
             <div className="text-sm text-muted-foreground bg-background flex items-start gap-1 p-2">
               <div className="loader"></div>
@@ -356,7 +478,8 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
             </div>
           )}
           <MessageInput
-            channelId={channelId}
+            key={`${channelId}-${currentActiveChannelRoom?._id}-${inputPlaceholder}`}
+            channel={currentChannel as Channel}
             isEditing={false}
             placeholder={inputPlaceholder}
             mentionSuggestions={

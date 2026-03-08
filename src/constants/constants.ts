@@ -70,7 +70,7 @@ export const MUTE_DURATION_OPTIONS = [
 ];
 
 
-export const STATUS_DURATIONS = [
+export const DURATIONS = [
   { text: "For 15 Minutes", value: 15 },
   { text: "For 1 Hour", value: 60 },
   { text: "For 3 Hours", value: 180 },
@@ -86,6 +86,21 @@ export const OBSSESSION_DURATIONS = [
   { text: "Clear after 4 hours", abbreviation: "4 hours", value: 240 },
   { text: `Don't clear`, abbreviation: `Don't clear`, value: -1 },
 ];
+
+export const MUTE_OPTIONS = [
+  {
+    label: 'All Messages',
+    value: 'all',
+  },
+  {
+    label: 'Only @Mentions',
+    value: 'mentions',
+  },
+  {
+    label: 'Nothing',
+    value: 'none',
+  },
+]
 
 
 

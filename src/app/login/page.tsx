@@ -17,10 +17,10 @@ import { tempTokenCompare } from "~/lib/utils";
 import { useFinalizingProviderUsernameMutation, useSignInMutation } from "~/redux/apis/auth.api";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { NestErrorResponse, USERNAME_CONFLICT } from "~/interfaces/error.interface";
-import { toast } from "sonner";
 import { Spinner } from "~/components/ui/spinner";
 import Image from "next/image";
 import { IconArrowRight, IconEyeFilled, IconEyeOff, IconLock, IconMail, IconUser } from "@tabler/icons-react";
+import { sileo } from "sileo";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -66,8 +66,9 @@ export default function LoginPage() {
         });
     } catch (error) {
       const errData = (error as FetchBaseQueryError).data as NestErrorResponse;
-      toast.error("Oops, something went wrong!", {
-        description: <span> {errData?.message || "An unexpected error occurred"}</span>,
+      sileo.error({
+        title: "Something went wrong",
+        description: errData?.message || "Please try again later.",
       });
     }
   };
@@ -87,8 +88,9 @@ export default function LoginPage() {
           message: errData.message,
         });
       } else {
-        toast.error("Oops, something went wrong!", {
-          description: <span>{errData?.message || "An unexpected error occurred"}</span>,
+        sileo.error({
+          title: "Something went wrong",
+          description: errData?.message || "Please try again later.",
         });
       }
     }

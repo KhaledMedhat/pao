@@ -6,7 +6,7 @@ import { IconCheck, IconDotsVertical, IconMessageCircleFilled, IconSearch, IconX
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
@@ -53,14 +53,21 @@ export default function ChannelsPage() {
     try {
       await sendFriendRequest({ username: data.username, sender: currentUserInfo }).unwrap();
       sendFriendRequestForm.reset();
-      toast.success("Friend Request sent successfully");
+      sileo.success({
+        title: "Friend Request sent successfully",
+      });
     } catch (error) {
       const errData = (error as FetchBaseQueryError).data as NestErrorResponse;
       if (errData?.error === "Conflict" || errData?.error === "Not Found") {
         sendFriendRequestForm.setError("username", { type: "manual", message: errData.message });
+        sileo.error({
+          title: "Friend Request not sent",
+          description: errData.message,
+        });
       } else {
-        toast.error("Oops, something went wrong!", {
-          description: <span className="text-muted-foreground">{errData?.message || "An unexpected error occurred"}</span>,
+        sileo.error({
+          title: "Something went wrong",
+          description: errData?.message || "Please try again later.",
         });
       }
     }
@@ -78,7 +85,9 @@ export default function ChannelsPage() {
                   dispatch(setActiveUI(ActiveUI.DIRECT_MESSAGES));
                   router.push(`/dm/${directChannel._id}`);
                 } else {
-                  toast.error("Channel is not found");
+                  sileo.error({
+                    title: "Channel is not found",
+                  });
                 }
               }}
               variant="ghost"
@@ -152,7 +161,6 @@ export default function ChannelsPage() {
         };
       case FriendsView.PENDING:
         const filteredPending = filterBySearch(pendingSenders);
-        console.log(filteredPending);
         const filteredRequestIds = pendingRequests.filter((req) => filteredPending.some((f) => f._id === req.sender._id)).map((req) => req._id);
         return {
           status: "Received",

@@ -4,17 +4,55 @@ import { getCookie } from "~/app/actions";
 class SocketService {
   private socket: Socket | null = null;
   private isInitialized = false;
+  private isRefreshingAuth = false;
+
+  private async getAccessToken() {
+    return await getCookie("access_token");
+  }
+
+  private isAuthErrorMessage(message: string) {
+    const lowered = message.toLowerCase();
+    return lowered.includes("jwt") || lowered.includes("unauthorized") || lowered.includes("token");
+  }
+
+  private async refreshSocketAuthAndReconnect() {
+    if (!this.socket || this.isRefreshingAuth) {
+      return;
+    }
+
+    this.isRefreshingAuth = true;
+    try {
+      const latestAccessToken = await this.getAccessToken();
+      if (!latestAccessToken) {
+        return;
+      }
+
+      this.socket.auth = { token: latestAccessToken };
+
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
+    } finally {
+      this.isRefreshingAuth = false;
+    }
+  }
 
   async initialize() {
     if (this.isInitialized && this.socket?.connected) {
       return this.socket;
     }
 
-    const accessToken = await getCookie("access_token");
+    const accessToken = await this.getAccessToken();
 
     if (!accessToken) {
       console.warn("No access token, cannot initialize socket");
       return null;
+    }
+
+    if (this.socket && !this.socket.connected) {
+      this.socket.auth = { token: accessToken };
+      this.socket.connect();
+      return this.socket;
     }
 
     this.socket = io(`${process.env.NEXT_PUBLIC_BACKEND_URL}/signaling`, {
@@ -40,6 +78,9 @@ class SocketService {
 
     this.socket.on("connect_error", (error) => {
       console.error("Socket connection error:", error.message);
+      if (this.isAuthErrorMessage(error.message)) {
+        void this.refreshSocketAuthAndReconnect();
+      }
     });
 
     this.isInitialized = true;

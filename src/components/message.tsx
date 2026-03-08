@@ -1,11 +1,11 @@
 "use client";
 
 import { MessageType, ReactionInterface, type MessageInterface } from "~/interfaces/message.interface";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { useState, memo, useEffect, useCallback, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
-import { FriendInterface } from "~/interfaces/user.interface";
+import { FriendInterface, StatusType } from "~/interfaces/user.interface";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -28,18 +28,19 @@ import {
     AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash, IconDots } from "@tabler/icons-react";
+import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash, IconDots, IconAlertCircle } from "@tabler/icons-react";
 import { Channel } from "~/interfaces/channels.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import { formatDate, getInitialsFallback, scrollToMessage } from "~/lib/utils";
 import MessageDetails from "./message-details";
-import { REACTION_EMOJIS } from "~/constants/constants";
+import { REACTION_EMOJIS, SHORT_LOGO_URL } from "~/constants/constants";
 import { EmojiPicker, EmojiPickerContent, EmojiPickerFooter, EmojiPickerSearch } from "./ui/emoji-picker";
 import MessageInput from "./message-input";
-import { useDeleteMessageMutation, usePinMessageMutation, useToggleReactionMutation, useUnpinMessageMutation } from "~/redux/apis/channel.api";
+import { useDeleteMessageMutation, useJoinServerMutation, usePinMessageMutation, useToggleReactionMutation, useUnpinMessageMutation } from "~/redux/apis/channel.api";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { setIsPinnedMessagesOpen, setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
+import { setActiveChannelRoom, setActiveUI, setCurrentChannelId, setIsPinnedMessagesOpen, setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
+import { addChannel } from "~/redux/slices/user/user-slice";
 import ForwardMessage from "./forward-message";
 import { Separator } from "./ui/separator";
 import ReactionPicker from "./reaction-picker";
@@ -48,6 +49,11 @@ import UserDetails from "./user-details";
 import { selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
 import { AttachmentsGrid } from "./attachments-grid";
 import { ScrollArea } from "./ui/scroll-area";
+import { Card, CardContent } from "./ui/card";
+import { useRouter } from "next/navigation";
+import { Spinner } from "./ui/spinner";
+import { ActiveUI } from "~/interfaces/app.interface";
+import { sileo } from "sileo";
 
 
 interface MessageComponentProps {
@@ -66,6 +72,8 @@ const Message = memo<MessageComponentProps>(
         const [pinMessage] = usePinMessageMutation();
         const [unpinMessage] = useUnpinMessageMutation();
         const dispatch = useAppDispatch();
+        const [joinServer, { isLoading: isJoiningServer }] = useJoinServerMutation();
+        const router = useRouter();
         const currentUser = useAppSelector(selectCurrentUserInfo);
         const [isEditing, setIsEditing] = useState<boolean>(false);
         const [makeReaction] = useToggleReactionMutation();
@@ -142,6 +150,35 @@ const Message = memo<MessageComponentProps>(
             });
         }, [makeReaction, message._id, currentUser?._id]);
 
+        const handleJoinServer = useCallback(() => {
+            joinServer({
+                serverId: message.additionalData?._id ?? "",
+            }).unwrap().then((data) => {
+                dispatch(addChannel(data));
+                dispatch(setActiveChannelRoom({ _id: data.channelMessageRooms?.find((room) => room.type === "Primary")?._id || "", name: data.channelMessageRooms?.find((room) => room.type === "Primary")?.name || "", type: "Primary" }));
+                dispatch(setCurrentChannelId(data._id ?? ""));
+                dispatch(setActiveUI(ActiveUI.SERVER));
+                sileo.success({
+                    title: "Joined server successfully",
+                });
+                router.push(`/server/${data._id}`);
+            }).catch((error) => {
+                sileo.action({
+                    title: error.data.message,
+                    icon: <IconAlertCircle size={20} color="orange" />,
+                    button: {
+                        title: "Go to Server",
+                        onClick: () => {
+                            const primaryRoom = message.additionalData?.channelMessageRooms?.find((room) => room.type === "Primary");
+                            dispatch(setCurrentChannelId(message.additionalData?._id ?? ""));
+                            dispatch(setActiveUI(ActiveUI.SERVER));
+                            dispatch(setActiveChannelRoom({ _id: primaryRoom?._id || "", name: primaryRoom?.name || "", type: "Primary" }));
+                            router.push(`/server/${message.additionalData?._id}`);
+                        }
+                    }
+                })
+            });
+        }, [joinServer, message.additionalData?._id]);
         return (
             <Dialog open={isForwardDialogOpen || isPinDialogOpen || isViewReactionsOpen} onOpenChange={handleDialogOpenChange}>
                 <AlertDialog open={isPinAlertDialogOpen || isDeleteAlertDialogOpen} onOpenChange={handleAlertDialogOpenChange}>
@@ -151,7 +188,7 @@ const Message = memo<MessageComponentProps>(
                                 <div
                                     id={message._id}
                                     className={`group relative px-4 -mx-4 cursor-default transition-colors duration-75 ${message._id && isReplying && replyingToMessage?._id === message._id && "bg-accent/40 hover:bg-accent/40"
-                                        } ${isHovered && "bg-main"} ${showHeader && "mt-4"} ${message.type === MessageType.REPLY && "pt-1"} ${isHighlighted && "animate-pulse bg-accent/30"}`}
+                                        } ${isHovered && "bg-main"} ${showHeader && "mt-4"} ${message.type === MessageType.REPLY && "pt-1"} ${message.type === MessageType.SERVER_INVITATION && "pb-2"} ${isHighlighted && "animate-pulse bg-accent/30"}`}
                                     onMouseEnter={handleMouseEnter}
                                     onMouseLeave={handleMouseLeave}
                                 >
@@ -164,7 +201,11 @@ const Message = memo<MessageComponentProps>(
                                                 <IconBorderCornerRounded stroke={2} className="text-muted-foreground hover:text-accent/40" />
                                             </button>
                                             <div className="flex items-center gap-1">
-                                                <Avatar className="size-7 bg-muted">
+                                                <Avatar className="size-7 bg-muted" style={
+                                                    message.replyMessageId?.sentBy?.profilePicture === SHORT_LOGO_URL && message.replyMessageId?.sentBy?.profilePictureBannerColor
+                                                        ? { backgroundColor: message.replyMessageId.sentBy.profilePictureBannerColor }
+                                                        : undefined
+                                                }>
                                                     <AvatarImage src={message.replyMessageId?.sentBy?.profilePicture || ""} />
                                                     <AvatarFallback>
                                                         {message.replyMessageId?.sentBy?.displayName?.charAt(0)}
@@ -199,7 +240,11 @@ const Message = memo<MessageComponentProps>(
                                                 {showHeader ? (
                                                     <PopoverTrigger asChild>
                                                         <div className="pt-0.5">
-                                                            <Avatar className="size-12">
+                                                            <Avatar className="size-12" style={
+                                                                message.sentBy?.profilePicture === SHORT_LOGO_URL && message.sentBy?.profilePictureBannerColor
+                                                                    ? { backgroundColor: message.sentBy.profilePictureBannerColor }
+                                                                    : undefined
+                                                            }>
                                                                 <AvatarImage src={message.sentBy?.profilePicture} alt={message.sentBy?.displayName} />
                                                                 <AvatarFallback>{getInitialsFallback(message.sentBy?.displayName)}</AvatarFallback>
                                                             </Avatar>
@@ -216,97 +261,10 @@ const Message = memo<MessageComponentProps>(
                                         )}
 
                                         {/* Message content */}
-                                        {message.type !== MessageType.PINNED_MSG_SYSTEM ? (
-                                            <div className="flex-1 min-w-0 flex w-full">
-                                                {message.type === MessageType.FORWARD && <span className="bg-muted-foreground w-0.5 rounded-xs mr-3 my-2" />}
-
-                                                <div className={`${showHeader && "pt-1"} w-full`}>
-                                                    {/* Header */}
-                                                    {showHeader && (
-                                                        <div className="flex items-center gap-2">
-                                                            <PopoverTrigger asChild>
-                                                                <span className="font-semibold">{message.sentBy?.displayName || message.sentBy?.username || "Unknown User"}</span>
-                                                            </PopoverTrigger>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <span className="text-xs text-muted-foreground">{formatDate(message.createdAt?.toString(), "md")}</span>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>{formatDate(message.createdAt?.toString(), "lg")}</TooltipContent>
-                                                            </Tooltip>
-
-                                                            {message.updatedAt && <span className="text-xs text-muted-foreground">(edited)</span>}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Message text and attachments */}
-                                                    <div className="text-base leading-snug wrap-break-word w-full">
-                                                        {isEditing ? (
-                                                            <div className="flex flex-col gap-2 w-full">
-                                                                <MessageInput channelId={channel?._id ?? ""} value={message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? ""} isEditing={true} messageId={message._id} setIsEditing={setIsEditing} />
-                                                                <p className="text-xs font-semibold">
-                                                                    escape to <span className="text-accent">cancel</span> &#x2022; enter to <span className="text-accent">save</span>
-                                                                </p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className={`flex items-start gap-1`}>
-                                                                <div className="flex flex-col">
-                                                                    <span className="flex items-start italic text-muted-foreground text-sm">
-                                                                        {message.type === MessageType.FORWARD && (
-                                                                            <>
-                                                                                <IconCornerUpRight stroke={1.5} /> Forwarded
-                                                                            </>
-                                                                        )}
-                                                                    </span>
-                                                                    <div className="flex items-start gap-1">
-                                                                        {message.message && (
-                                                                            <>
-                                                                                {" "}
-                                                                                {message.message.content?.[0].content?.map((msg, idx) => (
-                                                                                    <span key={idx} className="flex flex-col items-start">
-                                                                                        {msg.type === "text" && <p className="break-all">{msg.text}</p>}
-                                                                                        {msg.type === "mention" && (
-                                                                                            <Popover>
-                                                                                                <PopoverTrigger asChild>
-                                                                                                    <p className="bg-mention/60 hover:bg-mention px-1 text-mention-secondary font-semibold rounded no-underline cursor-pointer">{msg.attrs?.mentionSuggestionChar + msg.attrs?.label}</p>
-                                                                                                </PopoverTrigger>
-                                                                                                <PopoverContent side="right" className="w-80 p-0">
-                                                                                                    <UserDetails user={channel?.members.find((member) => member._id === msg.attrs?.id) as FriendInterface} size="sm" setDialogOpen={() => { }} />
-                                                                                                </PopoverContent>
-                                                                                            </Popover>
-                                                                                        )}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {message.attachment && message.attachment.length > 0 && (
-                                                            <div className="mt-2">
-                                                                <AttachmentsGrid
-                                                                    messageId={message._id}
-                                                                    attachments={message.attachment}
-                                                                    sender={message.sentBy}
-                                                                    messageSentAt={message.createdAt}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
+                                        {message.type === MessageType.PINNED_MSG_SYSTEM &&
                                             <div className="flex items-center gap-1 w-full flex-wrap">
                                                 {message.message.content?.[0].content?.map((msg, idx) => (
                                                     <span key={idx} className="flex items-start ">
-                                                        {/* {msg.type === "mention" && (
-                                                        <ProfileAvailabilityIndicator
-                                                            size="sm"
-                                                            status={message.sentBy?.status.type}
-                                                            imageUrl={message.sentBy?.profilePicture || ""}
-                                                            name={message.sentBy?.displayName || ""}
-                                                        />
-                                                    )} */}
                                                         {msg.type === 'pinnedBy' && msg.attrs &&
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
@@ -341,8 +299,134 @@ const Message = memo<MessageComponentProps>(
                                                     </span>
                                                 ))}
                                             </div>
-                                        )}
+                                        }
 
+                                        {message.type !== MessageType.PINNED_MSG_SYSTEM &&
+                                            <div className="flex-1 min-w-0 flex w-full">
+                                                {message.type === MessageType.FORWARD && <span className="bg-muted-foreground w-0.5 rounded-xs mr-3 my-2" />}
+
+                                                <div className={`${showHeader && "pt-1"} w-full`}>
+                                                    {/* Header */}
+                                                    {showHeader && (
+                                                        <div className="flex items-center gap-2">
+                                                            <PopoverTrigger asChild>
+                                                                <span className="font-semibold">{message.sentBy?.displayName || message.sentBy?.username || "Unknown User"}</span>
+                                                            </PopoverTrigger>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="text-xs text-muted-foreground">{formatDate(message.createdAt?.toString(), "md")}</span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>{formatDate(message.createdAt?.toString(), "lg")}</TooltipContent>
+                                                            </Tooltip>
+
+                                                            {message.updatedAt && <span className="text-xs text-muted-foreground">(edited)</span>}
+                                                        </div>
+                                                    )}
+
+                                                    {message.type === MessageType.SERVER_INVITATION ?
+                                                        <div className="flex items-start flex-col gap-2">
+                                                            {message.message.content?.[0].content?.map((msg) => (
+                                                                msg.type === "link" &&
+                                                                <Button disabled={isJoiningServer} onClick={handleJoinServer} key={msg.text} variant="link" className="text-sm text-accent/40 p-0 h-fit">{msg.text}</Button>
+                                                            ))}
+                                                            <Card className="w-xs p-0">
+                                                                <CardContent className="p-0">
+                                                                    <div className="relative w-full">
+                                                                        <div className="h-30 w-full bg-cover-placeholder rounded-t-xl"></div>
+                                                                        <div className="absolute -bottom-10 left-6">
+                                                                            <Avatar className="size-24">
+                                                                                <AvatarImage className="rounded-md" src={message.additionalData?.groupOrServerLogo ?? ""} alt={message.additionalData?.groupOrServerName ?? ""} />
+                                                                                <AvatarFallback>{getInitialsFallback(message.additionalData?.groupOrServerName ?? "")}</AvatarFallback>
+                                                                            </Avatar>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="mt-12 flex flex-col items-start gap-1 px-6 mb-4">
+                                                                        <p className="font-semibold">{message.additionalData?.groupOrServerName}</p>
+                                                                        {(() => {
+                                                                            const members = message.additionalData?.members ?? [];
+                                                                            const invisibleCount = members.filter((member) => member.status.type === StatusType.Invisible).length;
+                                                                            const onlineCount = members.length - invisibleCount;
+
+                                                                            return (
+                                                                                <div className="flex items-center gap-2 text-xs">
+                                                                                    <div className="flex items-center gap-1"> <span className="bg-[#43a25a] h-2 w-2 rounded-full"></span> <p className="text-muted-foreground">{onlineCount} Online</p></div>
+                                                                                    <div className="flex items-center gap-1"> <span className="bg-muted-foreground h-2 w-2 rounded-full"></span> <p className="text-muted-foreground">{members.length} {members.length > 1 ? "Members" : "Member"}</p></div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                        <p className="text-xs text-muted-foreground font-semibold">
+                                                                            {message.additionalData?.createdAt
+                                                                                ? new Date(message.additionalData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                                                                                : ""}
+                                                                        </p>
+
+                                                                        <Button disabled={isJoiningServer} className="w-full mt-2" onClick={handleJoinServer}>
+                                                                            {isJoiningServer ? <Spinner /> : "Go to Server"}
+                                                                        </Button>
+                                                                    </div>
+                                                                </CardContent>
+                                                            </Card>
+                                                        </div>
+                                                        :
+                                                        <div className="text-base leading-snug wrap-break-word w-full">
+                                                            {isEditing ? (
+                                                                <div className="flex flex-col gap-2 w-full">
+                                                                    <MessageInput channel={channel as Channel} value={message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? ""} isEditing={true} messageId={message._id} setIsEditing={setIsEditing} />
+                                                                    <p className="text-xs font-semibold">
+                                                                        escape to <span className="text-accent">cancel</span> &#x2022; enter to <span className="text-accent">save</span>
+                                                                    </p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className={`flex items-start gap-1`}>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="flex items-start italic text-muted-foreground text-sm">
+                                                                            {message.type === MessageType.FORWARD && (
+                                                                                <>
+                                                                                    <IconCornerUpRight stroke={1.5} /> Forwarded
+                                                                                </>
+                                                                            )}
+                                                                        </span>
+                                                                        <div className="flex items-start gap-1">
+                                                                            {message.message && (
+                                                                                <>
+                                                                                    {" "}
+                                                                                    {message.message.content?.[0].content?.map((msg, idx) => (
+                                                                                        <span key={idx} className="flex flex-col items-start">
+                                                                                            {msg.type === "text" && <p className="break-all">{msg.text}</p>}
+                                                                                            {msg.type === "mention" && (
+                                                                                                <Popover>
+                                                                                                    <PopoverTrigger asChild>
+                                                                                                        <p className="bg-mention/60 hover:bg-mention px-1 text-mention-secondary font-semibold rounded no-underline cursor-pointer">{msg.attrs?.mentionSuggestionChar + msg.attrs?.label}</p>
+                                                                                                    </PopoverTrigger>
+                                                                                                    <PopoverContent side="right" className="w-80 p-0">
+                                                                                                        <UserDetails user={channel?.members.find((member) => member._id === msg.attrs?.id) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                                                    </PopoverContent>
+                                                                                                </Popover>
+                                                                                            )}
+                                                                                        </span>
+                                                                                    ))}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {message.attachment && message.attachment.length > 0 && (
+                                                                <div className="mt-2">
+                                                                    <AttachmentsGrid
+                                                                        messageId={message._id}
+                                                                        attachments={message.attachment}
+                                                                        sender={message.sentBy}
+                                                                        messageSentAt={message.createdAt}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    }
+
+                                                </div>
+                                            </div>
+                                        }
 
                                         {/* Emoji reactions */}
                                         {(isHovered || isDropdownOpen) && (
@@ -703,7 +787,11 @@ const Message = memo<MessageComponentProps>(
                                             <div className="flex flex-col items-start gap-4">
                                                 {selectedReaction?.sentBy?.map((user) => (
                                                     <div key={user._id} className="flex items-center gap-2">
-                                                        <Avatar>
+                                                        <Avatar style={
+                                                            user.profilePicture === SHORT_LOGO_URL && user.profilePictureBannerColor
+                                                                ? { backgroundColor: user.profilePictureBannerColor }
+                                                                : undefined
+                                                        }>
                                                             <AvatarImage src={user.profilePicture} />
                                                             <AvatarFallback>{getInitialsFallback(user.displayName)}</AvatarFallback>
                                                         </Avatar>
