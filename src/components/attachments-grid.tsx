@@ -9,7 +9,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { IconArchive, IconCopy, IconCornerUpRight, IconDots, IconDownload, IconExternalLink, IconFile, IconFileSpreadsheet, IconFileText, IconHeadphones, IconLink, IconPlayerPauseFilled, IconPlayerPlayFilled, IconX, IconZoomIn, IconZoomOut } from "@tabler/icons-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "./ui/dropdown-menu"
@@ -544,51 +544,49 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
                                                     </TooltipContent>
                                                 </Tooltip>
                                             ))}
-                                            <TooltipProvider>
-                                                <DropdownMenu>
-                                                    <Tooltip>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="hover:bg-transparent"
-                                                                >
-                                                                    <IconDots size={18} />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                        </DropdownMenuTrigger>
-                                                        <TooltipContent>
-                                                            More
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    <DropdownMenuContent sideOffset={8} onCloseAutoFocus={(e) => e.preventDefault()} className="w-40">
-                                                        <DropdownMenuItem onClick={() => copyImageToClipboard()} className="flex items-center justify-between">
-                                                            Copy Image
-                                                            <IconCopy size={18} />
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleCopy(attachment.url)} className="flex items-center justify-between">
-                                                            Copy Link
-                                                            <IconLink size={18} />
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSub>
-                                                            <DropdownMenuSubTrigger>View Details</DropdownMenuSubTrigger>
-                                                            <DropdownMenuPortal>
-                                                                <DropdownMenuSubContent sideOffset={10} className="p-1">
-                                                                    <DropdownMenuItem onClick={() => handleCopy(attachment.name)} className="flex flex-col items-start gap-0">
-                                                                        <span className="text-accent font-semibold">Filename</span>
-                                                                        <span className="text-xs">{attachment.name}</span>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => handleCopy(attachment.size.toString())} className="flex flex-col items-start gap-0">
-                                                                        <span className="text-accent font-semibold">Size</span>
-                                                                        <span className="text-xs">{attachment.size}</span>
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuSubContent>
-                                                            </DropdownMenuPortal>
-                                                        </DropdownMenuSub>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TooltipProvider>
+                                            <DropdownMenu>
+                                                <Tooltip>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="hover:bg-transparent"
+                                                            >
+                                                                <IconDots size={18} />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                    </DropdownMenuTrigger>
+                                                    <TooltipContent>
+                                                        More
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <DropdownMenuContent sideOffset={8} onCloseAutoFocus={(e) => e.preventDefault()} className="w-40">
+                                                    <DropdownMenuItem onClick={() => copyImageToClipboard()} className="flex items-center justify-between">
+                                                        Copy Image
+                                                        <IconCopy size={18} />
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleCopy(attachment.url)} className="flex items-center justify-between">
+                                                        Copy Link
+                                                        <IconLink size={18} />
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger>View Details</DropdownMenuSubTrigger>
+                                                        <DropdownMenuPortal>
+                                                            <DropdownMenuSubContent sideOffset={10} className="p-1">
+                                                                <DropdownMenuItem onClick={() => handleCopy(attachment.name)} className="flex flex-col items-start gap-0">
+                                                                    <span className="text-accent font-semibold">Filename</span>
+                                                                    <span className="text-xs">{attachment.name}</span>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleCopy(attachment.size.toString())} className="flex flex-col items-start gap-0">
+                                                                    <span className="text-accent font-semibold">Size</span>
+                                                                    <span className="text-xs">{attachment.size}</span>
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuSubContent>
+                                                        </DropdownMenuPortal>
+                                                    </DropdownMenuSub>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </div>
                                         <Button onClick={() => {
                                             setSelectedImageIndex(null)

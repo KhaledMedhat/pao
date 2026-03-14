@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { IconChevronDown, IconChevronRight, IconCopy, IconHeadphonesFilled, IconIdBadge, IconMicrophoneFilled, IconMinus, IconMoon, IconPencil, IconSettingsFilled } from "@tabler/icons-react";
 import { ButtonGroup } from "./ui/button-group";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { generateRandomObsessionPrompt, getInitialsFallback } from "~/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -20,19 +20,21 @@ import ObsessionBubble from "./obsession-bubble";
 import { useUpdateUserMutation } from "~/redux/apis/auth.api";
 import { sileo } from "sileo";
 import { selectSidebarOpen } from "~/redux/slices/app/app-selector";
+import { HoveredState } from "~/interfaces/app.interface";
 
 
 const UserNavigator = () => {
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const sidebarOpen = useAppSelector(selectSidebarOpen);
   const [isCopied, setIsCopied] = useState<boolean>(false)
+  const [isGroupHovered, setIsGroupHovered] = useState<HoveredState | null>(null)
   const [prompt, setPrompt] = useState<string>("Any Thoughts ?!");
   const [updateUser] = useUpdateUserMutation();
   const usedIndexes = useRef<Set<number>>(new Set())
   const userStatusSwitcher = (status: StatusType) => {
     switch (status) {
       case StatusType.Online:
-        return { icon: <span className="bg-[#43a25a] size-3.5 rounded-full"></span>, label: "Online" };
+        return { icon: <span className="bg-success size-3.5 rounded-full"></span>, label: "Online" };
       case StatusType.Invisible:
         return { icon: <span className="bg-main border-4 border-muted-foreground/40 size-3.5 rounded-full"></span>, label: "Invisible" };
       case StatusType.DoNotDisturb:
@@ -44,7 +46,7 @@ const UserNavigator = () => {
       case StatusType.Idle:
         return { icon: <IconMoon className="size-3.5 text-yellow-500 fill-yellow-500" />, label: "Idle" };
       default:
-        return { icon: <span className="bg-[#43a25a] size-3.5 rounded-full"></span>, label: "Online" };
+        return { icon: <span className="bg-success size-3.5 rounded-full"></span>, label: "Online" };
     }
   }
   return (
@@ -92,7 +94,7 @@ const UserNavigator = () => {
                 </Avatar>}
             </PopoverTrigger>
             <PopoverContent
-              className="p-0 group"
+              className="group"
               onOpenAutoFocus={(e) => e.preventDefault()}
               sideOffset={10}
               style={
@@ -192,7 +194,7 @@ const UserNavigator = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-64 px-2 py-2 space-y-2" side="right">
                         <DropdownMenuItem className="h-11" onClick={() => updateUser({ status: { type: StatusType.Online, duration: StatusDuration.Forever } })}>
-                          <span className="bg-[#43a25a] size-2.5 rounded-full"></span>
+                          <span className="bg-success size-2.5 rounded-full"></span>
                           Online
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -264,12 +266,12 @@ const UserNavigator = () => {
             </PopoverContent>
           </Popover>
 
-          {sidebarOpen && <TooltipProvider>
+          {sidebarOpen &&
             <div className="flex items-center gap-1">
               <ButtonGroup>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost">
+                    <Button className={`${isGroupHovered === HoveredState.MIC_MORE && "bg-main/20"}`} size="icon" variant="ghost" onMouseEnter={() => setIsGroupHovered(HoveredState.MIC)} onMouseLeave={() => setIsGroupHovered(null)}>
                       <IconMicrophoneFilled size={20} />
                     </Button>
                   </TooltipTrigger>
@@ -277,7 +279,7 @@ const UserNavigator = () => {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon-xs" variant="ghost">
+                    <Button className={`${isGroupHovered === HoveredState.MIC && "bg-main/20"}`} size="icon-xs" variant="ghost" onMouseEnter={() => setIsGroupHovered(HoveredState.MIC_MORE)} onMouseLeave={() => setIsGroupHovered(null)}>
                       <IconChevronDown size={18} />
                     </Button>
                   </TooltipTrigger>
@@ -287,7 +289,7 @@ const UserNavigator = () => {
               <ButtonGroup>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost">
+                    <Button className={`${isGroupHovered === HoveredState.DEAFEN_MORE && "bg-main/20"}`} size="icon" variant="ghost" onMouseEnter={() => setIsGroupHovered(HoveredState.DEAFEN)} onMouseLeave={() => setIsGroupHovered(null)}>
                       <IconHeadphonesFilled size={20} />
                     </Button>
                   </TooltipTrigger>
@@ -295,7 +297,7 @@ const UserNavigator = () => {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon-xs" variant="ghost">
+                    <Button className={`${isGroupHovered === HoveredState.DEAFEN && "bg-main/20"}`} size="icon-xs" variant="ghost" onMouseEnter={() => setIsGroupHovered(HoveredState.DEAFEN_MORE)} onMouseLeave={() => setIsGroupHovered(null)}>
                       <IconChevronDown size={18} />
                     </Button>
                   </TooltipTrigger>
@@ -311,7 +313,7 @@ const UserNavigator = () => {
                 <TooltipContent>Settings</TooltipContent>
               </Tooltip>
             </div>
-          </TooltipProvider>}
+          }
         </div>
       </div>
       <DialogContent className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">

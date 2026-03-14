@@ -3,6 +3,7 @@ import { Lato } from "next/font/google";
 import "./globals.css";
 import { Providers } from "~/redux/provider";
 import { Toaster } from "sileo";
+import { TooltipProvider } from "~/components/ui/tooltip";
 const lato = Lato({
   variable: "--font-lato",
   subsets: ["latin"],
@@ -23,7 +24,11 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body className={`${lato.variable} antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+        </Providers>
         <Toaster position="bottom-right" options={{
           duration: 3000,
           fill: "#171717",

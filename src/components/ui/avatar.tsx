@@ -63,7 +63,7 @@ const statusBadgeStyles: Record<
   StatusType,
   { bg: string; icon?: React.ReactNode }
 > = {
-  [StatusType.Online]: { bg: "bg-[#43a25a]" },
+  [StatusType.Online]: { bg: "bg-success" },
   [StatusType.Invisible]: { bg: "bg-main border-2 border-muted-foreground/40" },
   [StatusType.DoNotDisturb]: {
     bg: "bg-red-500 text-primary-foreground",

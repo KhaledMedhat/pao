@@ -25,13 +25,13 @@ import { NestErrorResponse } from "~/interfaces/error.interface";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarImage } from "./ui/avatar";
 import ReactionPicker from "./reaction-picker";
 import { Input } from "./ui/input";
 import { useState } from "react";
 import { MessageType } from "~/interfaces/message.interface";
-import { useSendMessageMutation } from "~/redux/apis/channel.api";
+import { useSendMessageMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -56,6 +56,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
   const mutualServers = getMutualServers(currentUserChannels, user);
   const [sendFriendRequest] = useSendFriendRequestMutation();
   const [removeFriend] = useRemoveFriendMutation();
+  const [sendServerInvitationLink] = useSendServerInvitationLinkMutation();
   const [currentEmoji, setCurrentEmoji] = useState<string>("😊")
   const [newMessage, setNewMessage] = useState<string>("")
   const [sendMessage] = useSendMessageMutation();
@@ -169,23 +170,21 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
               )}
 
               {isTheUserFriend(currentUser, user._id) ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <DropdownMenu>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon">
-                            <IconUserCheck size={16} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <DropdownMenuContent side="right">
-                        <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <TooltipContent>Friends</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <DropdownMenu>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="icon">
+                          <IconUserCheck size={16} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <DropdownMenuContent side="right">
+                      <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <TooltipContent>Friends</TooltipContent>
+                </Tooltip>
               ) : (
                 // TODO: make an api call to create a channel if there wasnt one to chat even if the user is not a friend
                 <Tooltip>
@@ -197,48 +196,54 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                   <TooltipContent>Message</TooltipContent>
                 </Tooltip>
               )}
-              <TooltipProvider>
-                <Tooltip>
-                  <DropdownMenu>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon">
-                          <IconDots size={16} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <DropdownMenuContent side="right">
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent>
-                            {currentUserChannelServers.length > 0 ? (
-                              currentUserChannelServers.map((server) => (
-                                <DropdownMenuItem key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
-                              ))
-                            ) : (
-                              <Empty className="w-full flex items-center justify-center">
-                                <EmptyHeader>
-                                  <EmptyMedia variant="default">
-                                    <IconAtOff className="size-12 text-muted-foreground" />
-                                  </EmptyMedia>
-                                  <EmptyTitle>No Servers found</EmptyTitle>
-                                  <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
-                                </EmptyHeader>
-                              </Empty>
-                            )}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
-                        Copy User ID <IconIdBadge />
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <TooltipContent>More</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <DropdownMenu>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" size="icon">
+                        <IconDots size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <DropdownMenuContent side="right">
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                          {currentUserChannelServers.length > 0 ? (
+                            currentUserChannelServers.map((server) => (
+                              <DropdownMenuItem
+                                onClick={() => sendServerInvitationLink({
+                                  sendTo: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
+                                  invitationLink: {
+                                    link: server?.serverInvitationLink?.link || "",
+                                    id: server?.serverInvitationLink?.id || "",
+                                  },
+                                })}
+                                key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
+                            ))
+                          ) : (
+                            <Empty className="w-full flex items-center justify-center">
+                              <EmptyHeader>
+                                <EmptyMedia variant="default">
+                                  <IconAtOff className="size-12 text-muted-foreground" />
+                                </EmptyMedia>
+                                <EmptyTitle>No Servers found</EmptyTitle>
+                                <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
+                              </EmptyHeader>
+                            </Empty>
+                          )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
+                      Copy User ID <IconIdBadge />
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <TooltipContent>More</TooltipContent>
+              </Tooltip>
             </div>}
             {user.bio && <p className="max-w-3/4 text-sm">{user.bio}</p>}
             <div className="flex items-start flex-col">
@@ -344,66 +349,70 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
               <div className="relative w-full h-30 bg-cover-placeholder rounded-t-md">
                 {isTheUserFriend(currentUser, user._id) &&
                   <div className="flex items-center gap-2 absolute top-2 right-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <DropdownMenu>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="secondary" size="icon">
-                                <IconUserCheck size={16} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                          </TooltipTrigger>
-                          <DropdownMenuContent side="right">
-                            <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <TooltipContent>Friends</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <DropdownMenu>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="secondary" size="icon">
+                              <IconUserCheck size={16} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <DropdownMenuContent side="right">
+                          <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <TooltipContent>Friends</TooltipContent>
+                    </Tooltip>
 
-                    <TooltipProvider>
-                      <Tooltip>
-                        <DropdownMenu>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="secondary" size="icon">
-                                <IconDots size={16} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                          </TooltipTrigger>
-                          <DropdownMenuContent side="right">
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                  {currentUserChannelServers.length > 0 ? (
-                                    currentUserChannelServers.map((server) => (
-                                      <DropdownMenuItem key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
-                                    ))
-                                  ) : (
-                                    <Empty className="w-full flex items-center justify-center">
-                                      <EmptyHeader>
-                                        <EmptyMedia variant="default">
-                                          <IconAtOff className="size-12 text-muted-foreground" />
-                                        </EmptyMedia>
-                                        <EmptyTitle>No Servers found</EmptyTitle>
-                                        <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
-                                      </EmptyHeader>
-                                    </Empty>
-                                  )}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
-                              Copy User ID <IconIdBadge />
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <TooltipContent>More</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <DropdownMenu>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="secondary" size="icon">
+                              <IconDots size={16} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <DropdownMenuContent side="right">
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent>
+                                {currentUserChannelServers.length > 0 ? (
+                                  currentUserChannelServers.map((server) => (
+                                    <DropdownMenuItem
+                                      onClick={() => sendServerInvitationLink({
+                                        sendTo: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
+                                        invitationLink: {
+                                          link: server?.serverInvitationLink?.link || "",
+                                          id: server?.serverInvitationLink?.id || "",
+                                        },
+                                      })}
+                                      key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
+                                  ))
+                                ) : (
+                                  <Empty className="w-full flex items-center justify-center">
+                                    <EmptyHeader>
+                                      <EmptyMedia variant="default">
+                                        <IconAtOff className="size-12 text-muted-foreground" />
+                                      </EmptyMedia>
+                                      <EmptyTitle>No Servers found</EmptyTitle>
+                                      <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
+                                    </EmptyHeader>
+                                  </Empty>
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
+                            Copy User ID <IconIdBadge />
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <TooltipContent>More</TooltipContent>
+                    </Tooltip>
                   </div>}
                 <div className="absolute -bottom-10 left-4">
                   <DialogTrigger asChild>
@@ -523,66 +532,70 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                 <div className="relative w-full h-40 bg-cover-placeholder rounded-t-md">
                   {isTheUserFriend(currentUser, user._id) &&
                     <div className="flex items-center gap-2 absolute top-2 right-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <DropdownMenu>
-                            <TooltipTrigger asChild>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="secondary" size="icon">
-                                  <IconUserCheck size={16} />
-                                </Button>
-                              </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <DropdownMenuContent side="right">
-                              <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <TooltipContent>Friends</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <DropdownMenu>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="secondary" size="icon">
+                                <IconUserCheck size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <DropdownMenuContent side="right">
+                            <DropdownMenuItem onClick={async () => await removeFriend({ friendId: user._id })}>Remove Friend</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <TooltipContent>Friends</TooltipContent>
+                      </Tooltip>
 
-                      <TooltipProvider>
-                        <Tooltip>
-                          <DropdownMenu>
-                            <TooltipTrigger asChild>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="secondary" size="icon">
-                                  <IconDots size={16} />
-                                </Button>
-                              </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <DropdownMenuContent side="right">
-                              <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                  <DropdownMenuSubContent>
-                                    {currentUserChannelServers.length > 0 ? (
-                                      currentUserChannelServers.map((server) => (
-                                        <DropdownMenuItem key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
-                                      ))
-                                    ) : (
-                                      <Empty className="w-full flex items-center justify-center">
-                                        <EmptyHeader>
-                                          <EmptyMedia variant="default">
-                                            <IconAtOff className="size-12 text-muted-foreground" />
-                                          </EmptyMedia>
-                                          <EmptyTitle>No Servers found</EmptyTitle>
-                                          <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
-                                        </EmptyHeader>
-                                      </Empty>
-                                    )}
-                                  </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                              </DropdownMenuSub>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
-                                Copy User ID <IconIdBadge />
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <TooltipContent>More</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <DropdownMenu>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="secondary" size="icon">
+                                <IconDots size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <DropdownMenuContent side="right">
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>Invite to Server</DropdownMenuSubTrigger>
+                              <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                  {currentUserChannelServers.length > 0 ? (
+                                    currentUserChannelServers.map((server) => (
+                                      <DropdownMenuItem
+                                        onClick={() => sendServerInvitationLink({
+                                          sendTo: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
+                                          invitationLink: {
+                                            link: server?.serverInvitationLink?.link || "",
+                                            id: server?.serverInvitationLink?.id || "",
+                                          },
+                                        })}
+                                        key={server._id}>{server.groupOrServerName}</DropdownMenuItem>
+                                    ))
+                                  ) : (
+                                    <Empty className="w-full flex items-center justify-center">
+                                      <EmptyHeader>
+                                        <EmptyMedia variant="default">
+                                          <IconAtOff className="size-12 text-muted-foreground" />
+                                        </EmptyMedia>
+                                        <EmptyTitle>No Servers found</EmptyTitle>
+                                        <EmptyDescription>You are not in any servers to invite this @{user?.displayName || ""} to.</EmptyDescription>
+                                      </EmptyHeader>
+                                    </Empty>
+                                  )}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="justify-between" onClick={() => navigator.clipboard.writeText(user?.username || "")}>
+                              Copy User ID <IconIdBadge />
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <TooltipContent>More</TooltipContent>
+                      </Tooltip>
                     </div>}
                   <div className="absolute -bottom-10 left-4">
                     <DialogTrigger asChild>

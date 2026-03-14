@@ -20,6 +20,8 @@ import {
   addMembersToChannel,
   addNotification,
   addServerChannel,
+  removeChannelFromList,
+  removeMemberFromChannel,
   setChannels,
   setFriendRequests,
   setUpdatedFriend,
@@ -206,6 +208,22 @@ export const authApi = createApi({
             dispatch(updateChannelPinnedMessage({ message: data.message, isPinned: data.isPinned }));
           };
 
+          const handleRemoveMemberFromChannel = (data: { channelId: string, removedMemberId: string }) => {
+            dispatch(removeMemberFromChannel({ channelId: data.channelId, removedMemberId: data.removedMemberId }));
+          };
+
+          const handleGetRemovedFromChannel = (data: { channelId: string }) => {
+            dispatch(removeChannelFromList(data.channelId));
+          };
+
+          const handleGetAddedToChannel = (data: { channel: Channel }) => {
+            dispatch(addChannel(data.channel));
+          };
+
+          const handleAddMemberToChannel = (data: { channelId: string, addedMember: FriendInterface }) => {
+            dispatch(addMembersToChannel({ members: [data.addedMember], channelId: data.channelId }));
+          };
+
           socket?.on("friendRequest", handleFriendRequest);
           socket?.on("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
           socket?.on("friendRequestAcceptanceNotification", handleFriendRequestAcceptanceForNotification);
@@ -219,6 +237,10 @@ export const authApi = createApi({
           socket?.on("addGroupChannel", handleNewGroupChannelCreation);
           socket?.on("joinGroupChannel", handleJoiningGroupChannel);
           socket?.on("addGroupChannelMembers", handleAddingGroupChannelMembers);
+          socket?.on("memberRemovedFromChannel", handleRemoveMemberFromChannel);
+          socket?.on("getRemovedFromChannel", handleGetRemovedFromChannel);
+          socket?.on("getAddedToChannel", handleGetAddedToChannel);
+          socket?.on("memberAddedToChannel", handleAddMemberToChannel);
           await cacheEntryRemoved;
           socket?.off("friendRequest", handleFriendRequest);
           socket?.off("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
@@ -233,6 +255,10 @@ export const authApi = createApi({
           socket?.off("addGroupChannel", handleNewGroupChannelCreation);
           socket?.off("joinGroupChannel", handleJoiningGroupChannel);
           socket?.off("addGroupChannelMembers", handleAddingGroupChannelMembers);
+          socket?.off("memberRemovedFromChannel", handleRemoveMemberFromChannel);
+          socket?.off("getRemovedFromChannel", handleGetRemovedFromChannel);
+          socket?.off("getAddedToChannel", handleGetAddedToChannel);
+          socket?.off("memberAddedToChannel", handleAddMemberToChannel);
         } catch (error) {
           console.error("Socket cache entry error:", error);
         }

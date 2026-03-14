@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "~/component
 import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
 import { Table, TableBody, TableCell, TableRow } from "~/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { ActiveUI, FriendListPageInfo, FriendsView, MessageRequestsView } from "~/interfaces/app.interface";
 import { NestErrorResponse } from "~/interfaces/error.interface";
 import { FriendInterface, FriendRequestStatus, StatusType } from "~/interfaces/user.interface";
@@ -100,27 +100,25 @@ export default function ChannelsPage() {
           <TooltipContent>Message</TooltipContent>
         </Tooltip>
 
-        <TooltipProvider>
-          <Tooltip>
-            <DropdownMenu>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-background text-muted-foreground">
-                    <IconDotsVertical size={20} />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>Start Video Call</DropdownMenuItem>
-                <DropdownMenuItem>Start Voice Call</DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={async () => await removeFriend({ friendId })}>
-                  Remove Friend
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <TooltipContent>More</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <DropdownMenu>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-background text-muted-foreground">
+                  <IconDotsVertical size={20} />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>Start Video Call</DropdownMenuItem>
+              <DropdownMenuItem>Start Voice Call</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onClick={async () => await removeFriend({ friendId })}>
+                Remove Friend
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <TooltipContent>More</TooltipContent>
+        </Tooltip>
       </>
     );
   };

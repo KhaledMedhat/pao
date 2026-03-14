@@ -56,3 +56,10 @@ export interface AppInitialState {
 }
 
 export type RecordingState = "idle" | "recording" | "paused"
+
+export enum HoveredState {
+  MIC = "mic",
+  DEAFEN = "deafen",
+  MIC_MORE = "mic-more",
+  DEAFEN_MORE = "deafen-more",
+}

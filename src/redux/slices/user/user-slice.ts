@@ -200,6 +200,12 @@ export const userSlice = createSlice({
         }
       });
     },
+    removeMemberFromChannel: (state, action: PayloadAction<{ channelId: string, removedMemberId: string }>) => {
+      state.channelsInfo = state.channelsInfo.map((channel) => (channel._id === action.payload.channelId ? { ...channel, members: channel.members.filter((m) => m._id !== action.payload.removedMemberId) } : channel));
+    },
+    removeChannelFromList: (state, action: PayloadAction<string>) => {
+      state.channelsInfo = state.channelsInfo.filter((channel) => channel._id !== action.payload);
+    },
   },
 });
 
@@ -218,6 +224,8 @@ export const {
   setChannelListActive,
   updateChannelPinnedMessage,
   addMembersToChannel,
-  addServerChannel
+  addServerChannel,
+  removeMemberFromChannel,
+  removeChannelFromList
 } = userSlice.actions;
 export default userSlice.reducer;

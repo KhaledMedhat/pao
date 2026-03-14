@@ -70,7 +70,7 @@ export const channelApi = createApi({
         method: "DELETE",
       }),
     }),
-    pinMessage: builder.mutation<void, { channelId: string; messageId: string; pinnedBy: { id: string; label: string } }>({
+    pinMessage: builder.mutation<void, { channelId: string; messageId: string; pinnedBy: { id: string } }>({
       query: (args) => ({
         url: `/channels/pin-message/${args.channelId}/${args.messageId}`,
         method: "PATCH",
@@ -90,7 +90,7 @@ export const channelApi = createApi({
         body: args.reaction,
       }),
     }),
-    sendServerInvitation: builder.mutation<void, { sendTo: string; invitationLink: { link: string; id: string } }>({
+    sendServerInvitationLink: builder.mutation<void, { sendTo: string; invitationLink: { link: string; id: string } }>({
       query: (args) => ({
         url: `/channels/send-server-invitation`,
         method: "POST",
@@ -103,11 +103,11 @@ export const channelApi = createApi({
         method: "POST",
       }),
     }),
-    addGroupChannelMembers: builder.mutation<void, { channelId: string; memberIds: string[] }>({
+    addGroupChannelMembers: builder.mutation<void, { channelId: string; data: { memberToAdd: string, addedBy: string } }>({
       query: (args) => ({
-        url: `/channels/join-group-request/${args.channelId}`,
+        url: `/channels/add-member-to-group/${args.channelId}`,
         method: "PATCH",
-        body: args.memberIds,
+        body: args.data,
       }),
     }),
     createServerChannel: builder.mutation<void, { serverId: string; payload: { channelName: string; channelType: ServerChannelType } }>({
@@ -117,6 +117,15 @@ export const channelApi = createApi({
         body: args.payload,
       }),
     }),
+
+    removeGroupChannelMembers: builder.mutation<void, { channelId: string; data: { memberToRemove: string, removedBy: string } }>({
+      query: (args) => ({
+        url: `/channels/remove-member-from-group/${args.channelId}`,
+        method: "PATCH",
+        body: args.data,
+      }),
+    }),
+
   }),
 });
 
@@ -133,7 +142,8 @@ export const {
   useUnpinMessageMutation,
   useToggleReactionMutation,
   useAddGroupChannelMembersMutation,
-  useSendServerInvitationMutation,
+  useSendServerInvitationLinkMutation,
   useJoinServerMutation,
   useCreateServerChannelMutation,
+  useRemoveGroupChannelMembersMutation,
 } = channelApi;

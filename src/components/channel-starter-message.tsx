@@ -6,7 +6,7 @@ import { FriendInterface, User } from "~/interfaces/user.interface";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
 import { MAX_FRIENDS, SHORT_LOGO_URL } from "~/constants/constants";
-import { IconCheck, IconChevronRight, IconMessageCircle, IconPencil, IconSend, IconSettings, IconUsersPlus } from "@tabler/icons-react";
+import { IconCheck, IconChevronRight, IconPencil, IconSend, IconSettings, IconUsersPlus } from "@tabler/icons-react";
 import ChannelEditDialog from "./dashboard-header/channel-edit-dialog";
 import { useCallback, useId, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -15,11 +15,14 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Checkbox } from "./ui/checkbox";
 import { useAddGroupChannelMembersMutation } from "~/redux/apis/channel.api";
 import { setOpenServerInvitationDialog } from "~/redux/slices/app/app-slice";
-import { useAppDispatch } from "~/redux/hooks";
+import { useAppDispatch, useAppSelector } from "~/redux/hooks";
+import { selectActiveChannelRoom } from "~/redux/slices/app/app-selector";
+import { Spinner } from "./ui/spinner";
 
 const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: Channel[], currentUserInfo: User, messagesLength: number }> = ({ channel, currentUserChannels, currentUserInfo, messagesLength }) => {
     const mutualServers = getMutualServers(currentUserChannels, channel?.directChannelOtherMember);
     const dispatch = useAppDispatch();
+    const currentActiveRoom = useAppSelector(selectActiveChannelRoom);
     const [removeFriend] = useRemoveFriendMutation();
     const [addFriend] = useSendFriendRequestMutation();
     const [addGroupChannelMembers, { isLoading: isAddingGroupChannelMembersLoading }] = useAddGroupChannelMembersMutation();
@@ -59,6 +62,12 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
             .filter((friend): friend is FriendInterface => friend !== undefined);
 
         setSelectedFriends(newSelectedFriends);
+    };
+
+    const handleAddGroupChannelMembers = () => {
+        selectedFriends.forEach(async (friend) => {
+            addGroupChannelMembers({ channelId: channel._id, data: { memberToAdd: friend._id, addedBy: currentUserInfo._id } });
+        });
     };
 
 
@@ -178,8 +187,8 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                                             onInputChange={setSearchQuery}
                                             inputValue={searchQuery}
                                         />
-                                        <Button onClick={() => addGroupChannelMembers({ channelId: channel._id, memberIds: selectedFriends.map((friend) => friend._id) })} size='lg' className="h-11" disabled={selectedFriends.length === 0 || isAddingGroupChannelMembersLoading}>
-                                            Add
+                                        <Button onClick={handleAddGroupChannelMembers} size='lg' className="h-11" disabled={selectedFriends.length === 0 || isAddingGroupChannelMembersLoading}>
+                                            {isAddingGroupChannelMembersLoading ? <Spinner /> : "Add"}
                                         </Button>
                                     </div>
                                     <ScrollArea className="h-48 mb-12">
@@ -225,7 +234,7 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                 )
             case ChannelType.Server:
                 return (
-                    <div className="flex flex-col items-center justify-center min-h-[40vh]">
+                    currentActiveRoom?.type === "Primary" ? <div className="flex flex-col items-center justify-center min-h-[40vh]">
                         <div className="flex flex-col items-center justify-center gap-2">
                             <p className="text-4xl">Welcome to</p>
                             <p className="text-4xl text-center">{channel.groupOrServerName} Server</p>
@@ -253,13 +262,13 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                                     <div className="flex items-center gap-2">
                                         <IconSend size={16} /> Send your First Message
                                     </div>
-                                    {messagesLength > 0 ? <div className="bg-[#43a25a]/70 p-1 rounded-full">
+                                    {messagesLength > 0 ? <div className="bg-success/70 p-1 rounded-full">
                                         <IconCheck size={16} />
                                     </div> : <IconChevronRight size={16} />}
                                 </Button>
                             </div>
                         </div>
-                    </div>
+                    </div> : null
                 )
             default:
                 return null;

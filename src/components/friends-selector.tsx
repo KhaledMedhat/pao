@@ -8,9 +8,9 @@ import { useId, useState } from "react";
 import { FriendInterface, User } from "~/interfaces/user.interface";
 import { useRouter } from "next/navigation";
 import { createChannelName, getInitialsFallback } from "~/lib/utils";
-import { useCreateChannelMutation } from "~/redux/apis/channel.api";
+import { useAddGroupChannelMembersMutation, useCreateChannelMutation } from "~/redux/apis/channel.api";
 import { ChannelType } from "~/interfaces/channels.interface";
-import { IconMessageCirclePlus, IconPlus } from "@tabler/icons-react";
+import { IconMessageCirclePlus, IconPlus, IconUsersPlus } from "@tabler/icons-react";
 import { SidebarMenuButton } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
 import { ActiveUI, FriendsSelectorView } from "~/interfaces/app.interface";
@@ -19,6 +19,7 @@ import { selectCurrentUserChannels } from "~/redux/slices/user/user-selector";
 import { setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
 import { addChannel, setChannelListActive } from "~/redux/slices/user/user-slice";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { selectCurrentChannel } from "~/redux/slices/app/app-selector";
 
 const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User; view: FriendsSelectorView; otherUser?: FriendInterface[] }> = ({
   friends,
@@ -27,6 +28,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
   otherUser,
 }) => {
   const [createChannel, { isLoading: isCreateChannelLoading }] = useCreateChannelMutation();
+  const [addGroupChannelMembers, { isLoading: isAddingGroupChannelMembersLoading }] = useAddGroupChannelMembersMutation();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const id = useId();
@@ -34,8 +36,9 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
   const [selectedFriends, setSelectedFriends] = useState<FriendInterface[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagIndex, setActiveTagIndex] = useState<number | null>(null);
-  const filteredFriends = friends.filter((friend) => friend.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
   const currentUserChannels = useAppSelector(selectCurrentUserChannels);
+  const currentChannel = useAppSelector(selectCurrentChannel);
+  const filteredFriends = view === FriendsSelectorView.CHANNEL ? friends.filter((friend) => friend.displayName.toLowerCase().includes(searchQuery.toLowerCase()) && !currentChannel?.members.some((member) => member._id === friend._id)) : friends.filter((friend) => friend.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
   const friendSelectorDisplayHelper = () => {
     switch (view) {
       case FriendsSelectorView.SIDEBAR:
@@ -55,7 +58,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
       case FriendsSelectorView.CHANNEL:
         return {
           tooltip: "Add Friends to DM",
-          icon: <IconPlus size={16} />,
+          icon: <IconUsersPlus size={16} />,
           loadingText: "Creating Group DM ...",
           buttonText: "Create Group DM",
         };
@@ -120,6 +123,14 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
         });
     }
   };
+  const handleAddGroupChannelMembers = () => {
+    selectedFriends.forEach((friend) => {
+      addGroupChannelMembers({ channelId: currentChannel?._id ?? "", data: { memberToAdd: friend._id, addedBy: currentUser._id } }).unwrap().then(() => {
+        setSelectedFriends([]);
+        setOpenPopover(false);
+      });
+    });
+  };
   return (
     <Popover open={openPopover} onOpenChange={setOpenPopover}>
       <PopoverTrigger asChild>
@@ -138,7 +149,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
         <div className="w-full">
           <h2 className="text-xl font-semibold">Select Friends</h2>
           <p className="text-xs text-muted-foreground mb-4">You can add {MAX_FRIENDS - selectedFriends.length} more friends.</p>
-          <div className="mb-4">
+          <div className="mb-4 flex items-center gap-2">
             <TagInput
               id={id}
               tags={friendTags}
@@ -149,6 +160,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
               onInputChange={setSearchQuery}
               inputValue={searchQuery}
             />
+            {view === FriendsSelectorView.CHANNEL && <Button variant="default" size="xl" disabled={isAddingGroupChannelMembersLoading || selectedFriends.length === 0} onClick={handleAddGroupChannelMembers}>{isAddingGroupChannelMembersLoading ? <Spinner /> : "Add"}</Button>}
           </div>
           <ScrollArea className="h-48 mb-12">
             <div className="flex flex-col">
@@ -188,7 +200,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
           </ScrollArea>
         </div>
 
-        <div className="bg-muted z-10 rounded-bl-md rounded-br-md absolute bottom-0 w-full py-6 px-8">
+        {view !== FriendsSelectorView.CHANNEL && <div className="bg-muted z-10 rounded-bl-md rounded-br-md absolute bottom-0 w-full py-6 px-8">
           <Button onClick={handleCreateDM} variant="default" className="w-full p-5" disabled={isCreateChannelLoading || selectedFriends.length === 0}>
             {isCreateChannelLoading ? (
               <span className="flex items-center gap-1">
@@ -199,7 +211,7 @@ const FriendsSelector: React.FC<{ friends: FriendInterface[]; currentUser: User;
               friendSelectorDisplayHelper().buttonText
             )}
           </Button>
-        </div>
+        </div>}
       </PopoverContent>
     </Popover>
   );

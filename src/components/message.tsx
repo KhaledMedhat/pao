@@ -1,10 +1,10 @@
 "use client";
 
 import { MessageType, ReactionInterface, type MessageInterface } from "~/interfaces/message.interface";
-import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { useState, memo, useEffect, useCallback, useMemo } from "react";
 import { Button } from "./ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { FriendInterface, StatusType } from "~/interfaces/user.interface";
 import {
     ContextMenu,
@@ -16,7 +16,6 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from "./ui/context-menu";
-import { PencilIcon, Copy, Pin } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,7 +27,7 @@ import {
     AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash, IconDots, IconAlertCircle } from "@tabler/icons-react";
+import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash, IconDots, IconAlertCircle, IconPin, IconArrowLeft, IconArrowRight, IconCopy, IconPencil } from "@tabler/icons-react";
 import { Channel } from "~/interfaces/channels.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
@@ -235,7 +234,7 @@ const Message = memo<MessageComponentProps>(
                                     )}
                                     <div className="flex gap-4 items-start">
                                         {/* Avatar column */}
-                                        {message.type !== MessageType.PINNED_MSG_SYSTEM ? (
+                                        {![MessageType.PINNED_MSG_SYSTEM, MessageType.REMOVAL_MSG_SYSTEM, MessageType.ADDING_MSG_SYSTEM, MessageType.CALL_END_MSG_SYSTEM, MessageType.CALL_MISSED_MSG_SYSTEM].includes(message.type) && (
                                             <div className="w-12 shrink-0">
                                                 {showHeader ? (
                                                     <PopoverTrigger asChild>
@@ -256,10 +255,10 @@ const Message = memo<MessageComponentProps>(
                                                     </div>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <Pin size={24} color="var(--muted-foreground)" fill="var(--muted-foreground) " className="rotate-45" />
                                         )}
-
+                                        {message.type === MessageType.PINNED_MSG_SYSTEM && <IconPin size={24} color="var(--muted-foreground)" fill="var(--muted-foreground) " className="mt-1.5" />}
+                                        {message.type === MessageType.REMOVAL_MSG_SYSTEM && <IconArrowLeft size={24} color="var(--destructive)" className="mt-1.5" />}
+                                        {message.type === MessageType.ADDING_MSG_SYSTEM && <IconArrowRight size={24} color="var(--success)" className="mt-1.5" />}
                                         {/* Message content */}
                                         {message.type === MessageType.PINNED_MSG_SYSTEM &&
                                             <div className="flex items-center gap-1 w-full flex-wrap">
@@ -268,10 +267,10 @@ const Message = memo<MessageComponentProps>(
                                                         {msg.type === 'pinnedBy' && msg.attrs &&
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                    <Button variant="link" className="p-0 text-md text-mention">{msg.attrs?.label}</Button>
+                                                                    <Button variant="link" className="p-0 text-md text-mention">{msg.attrs?.pinnedBy?.displayName}</Button>
                                                                 </PopoverTrigger>
-                                                                <PopoverContent side="right" className="w-sm">
-                                                                    <UserDetails user={channel?.members.find((member) => member._id === msg.attrs?.id) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                <PopoverContent side="right" className="w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                                    <UserDetails user={(msg.attrs?.pinnedBy) as FriendInterface} size="sm" setDialogOpen={() => { }} />
                                                                 </PopoverContent>
                                                             </Popover>
                                                         }
@@ -298,10 +297,74 @@ const Message = memo<MessageComponentProps>(
                                                         )}
                                                     </span>
                                                 ))}
+                                                <span className="text-[10px] text-muted-foreground">{formatDate(message.createdAt?.toString(), "sm")}</span>
                                             </div>
                                         }
 
-                                        {message.type !== MessageType.PINNED_MSG_SYSTEM &&
+                                        {message.type === MessageType.REMOVAL_MSG_SYSTEM &&
+                                            <div className="flex items-center gap-1 w-full flex-wrap">
+                                                {message.message.content?.[0].content?.map((msg, idx) => (
+                                                    <span key={idx} className="flex items-start ">
+                                                        {msg.type === 'removedBy' && msg.attrs &&
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="link" className="p-0 text-md font-bold">{msg.attrs?.removedBy?.displayName}</Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent side="right" className="w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                                    <UserDetails user={(msg.attrs?.removedBy) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        }
+                                                        {msg.type === "text" && <p>{msg.text} </p>}
+                                                        {msg.type === 'removedMember' && msg.attrs &&
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="link" className="p-0 text-md font-bold">{msg.attrs?.removedMember?.displayName}</Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent side="right" className="w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                                    <UserDetails user={(msg.attrs?.removedMember) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        }
+                                                    </span>
+                                                ))}
+                                                <span className="text-[10px] text-muted-foreground">{formatDate(message.createdAt?.toString(), "sm")}</span>
+                                            </div>
+                                        }
+
+                                        {message.type === MessageType.ADDING_MSG_SYSTEM &&
+                                            <div className="flex items-center gap-1 w-full flex-wrap">
+                                                {message.message.content?.[0].content?.map((msg, idx) => (
+                                                    <span key={idx} className="flex items-start ">
+                                                        {msg.type === 'addedBy' && msg.attrs &&
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="link" className="p-0 text-md font-bold">{msg.attrs?.removedBy?.displayName}</Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent side="right" className="w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                                    <UserDetails user={(msg.attrs?.removedBy) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        }
+                                                        {msg.type === "text" && <p>{msg.text} </p>}
+                                                        {msg.type === 'addedMember' && msg.attrs &&
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button variant="link" className="p-0 text-md font-bold">{msg.attrs?.removedMember?.displayName}</Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent side="right" className="w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                                    <UserDetails user={(msg.attrs?.removedMember) as FriendInterface} size="sm" setDialogOpen={() => { }} />
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        }
+
+                                                    </span>
+                                                ))}
+                                                <span className="text-[10px] text-muted-foreground">{formatDate(message.createdAt?.toString(), "sm")}</span>
+                                            </div>
+                                        }
+
+                                        {![MessageType.PINNED_MSG_SYSTEM, MessageType.REMOVAL_MSG_SYSTEM, MessageType.ADDING_MSG_SYSTEM, MessageType.CALL_END_MSG_SYSTEM, MessageType.CALL_MISSED_MSG_SYSTEM].includes(message.type) &&
                                             <div className="flex-1 min-w-0 flex w-full">
                                                 {message.type === MessageType.FORWARD && <span className="bg-muted-foreground w-0.5 rounded-xs mr-3 my-2" />}
 
@@ -349,7 +412,7 @@ const Message = memo<MessageComponentProps>(
 
                                                                             return (
                                                                                 <div className="flex items-center gap-2 text-xs">
-                                                                                    <div className="flex items-center gap-1"> <span className="bg-[#43a25a] h-2 w-2 rounded-full"></span> <p className="text-muted-foreground">{onlineCount} Online</p></div>
+                                                                                    <div className="flex items-center gap-1"> <span className="bg-success h-2 w-2 rounded-full"></span> <p className="text-muted-foreground">{onlineCount} Online</p></div>
                                                                                     <div className="flex items-center gap-1"> <span className="bg-muted-foreground h-2 w-2 rounded-full"></span> <p className="text-muted-foreground">{members.length} {members.length > 1 ? "Members" : "Member"}</p></div>
                                                                                 </div>
                                                                             );
@@ -398,7 +461,7 @@ const Message = memo<MessageComponentProps>(
                                                                                                     <PopoverTrigger asChild>
                                                                                                         <p className="bg-mention/60 hover:bg-mention px-1 text-mention-secondary font-semibold rounded no-underline cursor-pointer">{msg.attrs?.mentionSuggestionChar + msg.attrs?.label}</p>
                                                                                                     </PopoverTrigger>
-                                                                                                    <PopoverContent side="right" className="w-80 p-0">
+                                                                                                    <PopoverContent side="right" className="w-sm">
                                                                                                         <UserDetails user={channel?.members.find((member) => member._id === msg.attrs?.id) as FriendInterface} size="sm" setDialogOpen={() => { }} />
                                                                                                     </PopoverContent>
                                                                                                 </Popover>
@@ -477,112 +540,110 @@ const Message = memo<MessageComponentProps>(
                                                         </TooltipContent>
                                                     </Tooltip>}
 
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <DropdownMenu modal={false}>
-                                                                <TooltipTrigger asChild>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="icon-sm">
-                                                                            <IconDots size={20} color="var(--muted-foreground)" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                </TooltipTrigger>
-                                                                <DropdownMenuContent>
-                                                                    <div className="flex items-center gap-2 mb-2">
-                                                                        {REACTION_EMOJIS.map((emoji) => (
-                                                                            <Tooltip key={emoji.label}>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <DropdownMenuItem variant="secondary" className="size-10" onSelect={() => handleReactionClick(emoji.emoji, emoji.label)}>
-                                                                                        <span className="text-lg">{emoji.emoji}</span>
-                                                                                    </DropdownMenuItem>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    {emoji.label}
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        ))}
-                                                                    </div>
-                                                                    <DropdownMenuSub>
-                                                                        <DropdownMenuSubTrigger >View More Reactions</DropdownMenuSubTrigger>
-                                                                        <DropdownMenuSubContent
-                                                                            className="will-change-transform transform-gpu w-fit p-0 data-[state=closed]:invisible data-[state=closed]:pointer-events-none">
-                                                                            <EmojiPicker
-                                                                                className="h-[342px]"
-                                                                                onEmojiSelect={({ emoji, label }) => {
-                                                                                    makeReaction({
-                                                                                        messageId: message._id,
-                                                                                        reaction: {
-                                                                                            emoji: emoji,
-                                                                                            label: `:${label}:`,
-                                                                                            userId: currentUser?._id,
-                                                                                        },
-                                                                                    })
-                                                                                    document.dispatchEvent(
-                                                                                        new KeyboardEvent("keydown", { key: "Escape" })
-                                                                                    );
-                                                                                }}
-                                                                            >
-                                                                                <EmojiPickerSearch />
-                                                                                <EmojiPickerContent />
-                                                                                <EmojiPickerFooter />
-                                                                            </EmojiPicker>
-                                                                        </DropdownMenuSubContent>
-                                                                    </DropdownMenuSub>
+                                                    <Tooltip>
+                                                        <DropdownMenu modal={false}>
+                                                            <TooltipTrigger asChild>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon-sm">
+                                                                        <IconDots size={20} color="var(--muted-foreground)" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                            </TooltipTrigger>
+                                                            <DropdownMenuContent>
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    {REACTION_EMOJIS.map((emoji) => (
+                                                                        <Tooltip key={emoji.label}>
+                                                                            <TooltipTrigger asChild>
+                                                                                <DropdownMenuItem variant="secondary" className="size-10" onSelect={() => handleReactionClick(emoji.emoji, emoji.label)}>
+                                                                                    <span className="text-lg">{emoji.emoji}</span>
+                                                                                </DropdownMenuItem>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent>
+                                                                                {emoji.label}
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    ))}
+                                                                </div>
+                                                                <DropdownMenuSub>
+                                                                    <DropdownMenuSubTrigger >View More Reactions</DropdownMenuSubTrigger>
+                                                                    <DropdownMenuSubContent
+                                                                        className="will-change-transform transform-gpu w-fit p-0 data-[state=closed]:invisible data-[state=closed]:pointer-events-none">
+                                                                        <EmojiPicker
+                                                                            className="h-[342px]"
+                                                                            onEmojiSelect={({ emoji, label }) => {
+                                                                                makeReaction({
+                                                                                    messageId: message._id,
+                                                                                    reaction: {
+                                                                                        emoji: emoji,
+                                                                                        label: `:${label}:`,
+                                                                                        userId: currentUser?._id,
+                                                                                    },
+                                                                                })
+                                                                                document.dispatchEvent(
+                                                                                    new KeyboardEvent("keydown", { key: "Escape" })
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <EmojiPickerSearch />
+                                                                            <EmojiPickerContent />
+                                                                            <EmojiPickerFooter />
+                                                                        </EmojiPicker>
+                                                                    </DropdownMenuSubContent>
+                                                                </DropdownMenuSub>
 
-                                                                    <DropdownMenuSeparator />
+                                                                <DropdownMenuSeparator />
 
-                                                                    {isSameUser && message.type === MessageType.TEXT && (
-                                                                        <DropdownMenuItem onClick={() => setIsEditing(true)} className="justify-between">
-                                                                            Edit Message
-                                                                            <PencilIcon size={18} strokeWidth={0.5} color="var(--muted)" fill="var(--muted-foreground)" />
-                                                                        </DropdownMenuItem>
-                                                                    )}
-                                                                    <DropdownMenuItem onClick={() => {
-                                                                        dispatch(setIsReplying(true));
-                                                                        dispatch(setReplyingToMessage(message));
-                                                                    }} className="justify-between">
-                                                                        Reply
-                                                                        <IconCornerUpLeft size={18} color="var(--muted-foreground)" />
+                                                                {isSameUser && message.type === MessageType.TEXT && (
+                                                                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="justify-between">
+                                                                        Edit Message
+                                                                        <IconPencil size={18} strokeWidth={0.5} color="var(--muted)" fill="var(--muted-foreground)" />
                                                                     </DropdownMenuItem>
-                                                                    {(message.type === MessageType.TEXT || message.type === MessageType.REPLY || message.type === MessageType.FORWARD) &&
-                                                                        <DialogTrigger asChild>
-                                                                            <DropdownMenuItem className="justify-between">
-                                                                                Forward
-                                                                                <IconCornerUpRight size={18} color="var(--muted-foreground)" />
-                                                                            </DropdownMenuItem>
-                                                                        </DialogTrigger>
-                                                                    }
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => {
-                                                                            navigator.clipboard.writeText(message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? "");
-                                                                        }}
-                                                                        className="justify-between"
-                                                                    >
-                                                                        Copy Text
-                                                                        <Copy size={18} color="var(--muted-foreground)" />
-                                                                    </DropdownMenuItem>
-                                                                    {message.isPinned ? (
-                                                                        <DropdownMenuItem className="justify-between" onClick={() => setIsPinDialogOpen(true)}>
-                                                                            Unpin Message
-                                                                            <Pin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" className="rotate-45" />
+                                                                )}
+                                                                <DropdownMenuItem onClick={() => {
+                                                                    dispatch(setIsReplying(true));
+                                                                    dispatch(setReplyingToMessage(message));
+                                                                }} className="justify-between">
+                                                                    Reply
+                                                                    <IconCornerUpLeft size={18} color="var(--muted-foreground)" />
+                                                                </DropdownMenuItem>
+                                                                {(message.type === MessageType.TEXT || message.type === MessageType.REPLY || message.type === MessageType.FORWARD) &&
+                                                                    <DialogTrigger asChild>
+                                                                        <DropdownMenuItem className="justify-between">
+                                                                            Forward
+                                                                            <IconCornerUpRight size={18} color="var(--muted-foreground)" />
                                                                         </DropdownMenuItem>
-                                                                    ) : (
-                                                                        <DropdownMenuItem className="justify-between" onClick={() => setIsPinAlertDialogOpen(true)}>
-                                                                            Pin Message
-                                                                            <Pin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" className="rotate-45" />
-                                                                        </DropdownMenuItem>
-                                                                    )}
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem variant="destructive" className="justify-between" onClick={() => setIsDeleteAlertDialogOpen(true)}>
-                                                                        Delete Message
-                                                                        <IconTrash size={18} color="var(--destructive)" />
+                                                                    </DialogTrigger>
+                                                                }
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? "");
+                                                                    }}
+                                                                    className="justify-between"
+                                                                >
+                                                                    Copy Text
+                                                                    <IconCopy size={18} color="var(--muted-foreground)" />
+                                                                </DropdownMenuItem>
+                                                                {message.isPinned ? (
+                                                                    <DropdownMenuItem className="justify-between" onClick={() => setIsPinDialogOpen(true)}>
+                                                                        Unpin Message
+                                                                        <IconPin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" />
                                                                     </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                            <TooltipContent>More</TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                                                ) : (
+                                                                    <DropdownMenuItem className="justify-between" onClick={() => setIsPinAlertDialogOpen(true)}>
+                                                                        Pin Message
+                                                                        <IconPin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" />
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem variant="destructive" className="justify-between" onClick={() => setIsDeleteAlertDialogOpen(true)}>
+                                                                    Delete Message
+                                                                    <IconTrash size={18} color="var(--destructive)" />
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                        <TooltipContent>More</TooltipContent>
+                                                    </Tooltip>
 
                                                 </div>
                                             </div>
@@ -674,7 +735,7 @@ const Message = memo<MessageComponentProps>(
                                 {isSameUser && message.type === MessageType.TEXT && (
                                     <ContextMenuItem onClick={() => setIsEditing(true)} className="justify-between">
                                         Edit Message
-                                        <PencilIcon size={18} strokeWidth={0.5} color="var(--muted)" fill="var(--muted-foreground)" />
+                                        <IconPencil size={18} strokeWidth={0.5} color="var(--muted)" fill="var(--muted-foreground)" />
                                     </ContextMenuItem>
                                 )}
                                 <ContextMenuItem onClick={() => {
@@ -698,17 +759,17 @@ const Message = memo<MessageComponentProps>(
                                     className="justify-between"
                                 >
                                     Copy Text
-                                    <Copy size={18} color="var(--muted-foreground)" />
+                                    <IconCopy size={18} color="var(--muted-foreground)" />
                                 </ContextMenuItem>
                                 {message.isPinned ? (
                                     <ContextMenuItem className="justify-between" onClick={() => setIsPinDialogOpen(true)}>
                                         Unpin Message
-                                        <Pin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" className="rotate-45" />
+                                        <IconPin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" />
                                     </ContextMenuItem>
                                 ) : (
                                     <ContextMenuItem className="justify-between" onClick={() => setIsPinAlertDialogOpen(true)}>
                                         Pin Message
-                                        <Pin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" className="rotate-45" />
+                                        <IconPin size={18} color="var(--muted-foreground)" fill="var(--muted-foreground)" />
                                     </ContextMenuItem>
                                 )}
                                 <ContextMenuSeparator />
@@ -827,10 +888,7 @@ const Message = memo<MessageComponentProps>(
                                                 pinMessage({
                                                     channelId: channel?._id ?? "",
                                                     messageId: message._id,
-                                                    pinnedBy: {
-                                                        id: currentUser?._id ?? "",
-                                                        label: currentUser?.displayName ?? "",
-                                                    },
+                                                    pinnedBy: { id: currentUser?._id ?? "" },
                                                 })
                                             }
                                         >

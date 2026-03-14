@@ -44,7 +44,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "./ui/input";
 import useUpload from "~/hooks/use-upload";
 import { ActiveUI, ConfigPrefix, FriendsSelectorView } from "~/interfaces/app.interface";
-import { useCreateChannelMutation, useCreateServerChannelMutation, useLeaveGroupChannelMutation, useSendServerInvitationMutation } from "~/redux/apis/channel.api";
+import { useCreateChannelMutation, useCreateServerChannelMutation, useLeaveGroupChannelMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
 import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.interface";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { NestErrorResponse } from "~/interfaces/error.interface";
@@ -74,7 +74,7 @@ import {
 import ChannelSharedContextMenu from "./channel-shared-context-menu";
 import { ImageCropperInline } from "./image-cropper";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import ReactionPicker from "./reaction-picker";
@@ -106,11 +106,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [currentEmoji, setCurrentEmoji] = useState<string>("😊");
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const openServerInvitationDialog = useAppSelector(selectOpenServerInvitationDialog);
-  const [sendServerInvitation, { isLoading: isSendingServerInvitation }] = useSendServerInvitationMutation();
-  const handleSendServerInvitation = async (friendId: string) => {
+  const [sendServerInvitationLink, { isLoading: isSendingServerInvitationLink }] = useSendServerInvitationLinkMutation();
+  const handleSendServerInvitationLink = async (friendId: string) => {
     setInvitingFriendId(friendId);
     try {
-      await sendServerInvitation({
+      await sendServerInvitationLink({
         sendTo: extractDirectChannelFromMembers(currentUserInfo._id, currentChannels, friendId)?._id || "",
         invitationLink: {
           link: currentChannel?.serverInvitationLink?.link || "",
@@ -1121,9 +1121,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Button
                     disabled={invitingFriendId === friend._id}
                     variant="secondary"
-                    onClick={() => handleSendServerInvitation(friend._id)}
+                    onClick={() => handleSendServerInvitationLink(friend._id)}
                   >
-                    {invitingFriendId === friend._id && isSendingServerInvitation ? <Spinner /> : "Send Link"}
+                    {invitingFriendId === friend._id && isSendingServerInvitationLink ? <Spinner /> : "Send Link"}
                   </Button>
                 </div>
               )) : (
@@ -1142,7 +1142,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 value={currentChannel?.serverInvitationLink?.link || ""}
                 className={cn(
                   "h-11 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-input transition-colors duration-300",
-                  inviteLinkCopied && "border-[#43a25a] bg-[#43a25a]/10"
+                  inviteLinkCopied && "border-[#43a25a] bg-success/10"
                 )}
                 readOnly
               />
@@ -1155,7 +1155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 variant="default"
                 className={cn(
                   "absolute right-1 top-1/2 -translate-y-1/2 transition-colors duration-300",
-                  inviteLinkCopied && "bg-[#43a25a]"
+                  inviteLinkCopied && "bg-success"
                 )}
               >
                 {inviteLinkCopied ? "Copied" : "Copy"}

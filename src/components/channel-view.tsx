@@ -13,19 +13,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChannelMessages } from "~/hooks/use-channel-messages";
 import { useScrollToMessage } from "~/hooks/use-scroll-to-message";
 import { Button } from "./ui/button";
-import { IconChevronDown, IconCrownFilled, IconIdBadge } from "@tabler/icons-react";
+import { IconAtOff, IconChevronDown, IconCrownFilled, IconIdBadge } from "@tabler/icons-react";
 import { MessageSkeletonList, LoadingMoreSkeleton } from "./message-skeleton";
 import { useScrollContext } from "~/contexts/scroll-context";
 import { JSONContent } from "@tiptap/react";
 import UserDetails from "./user-details";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Avatar, AvatarImage, AvatarFallback, AvatarBadge, AvatarGroup } from "./ui/avatar";
-import { cn, getChannelTypeLabel, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
+import { Avatar, AvatarImage, AvatarFallback, AvatarBadge } from "./ui/avatar";
+import { cn, extractDirectChannelFromMembers, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
-import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuItem, ContextMenuRadioItem, ContextMenuSeparator, ContextMenuTrigger } from "./ui/context-menu";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuRadioItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from "./ui/context-menu";
 import { StatusType } from "~/interfaces/user.interface";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Field } from "./ui/field";
@@ -33,6 +33,8 @@ import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import ChannelStarterMessage from "./channel-starter-message";
 import { SHORT_LOGO_URL } from "~/constants/constants";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "./ui/empty";
+import { useRemoveGroupChannelMembersMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
@@ -53,7 +55,9 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const mutualServers = getMutualServers(currentUserChannels, currentChannel?.directChannelOtherMember);
   const [removeFriend] = useRemoveFriendMutation();
   const [addFriend] = useSendFriendRequestMutation();
-
+  const currentUserChannelServers = currentUserChannels.filter((c) => c.type === ChannelType.Server);
+  const [sendServerInvitationLink] = useSendServerInvitationLinkMutation();
+  const [removeGroupChannelMembers] = useRemoveGroupChannelMembersMutation();
   const inputPlaceholder = useMemo(() => {
     if (currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember) {
       return `Message @${currentChannel.directChannelOtherMember.displayName}`;
@@ -262,30 +266,131 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                               </Avatar>
                               {member.displayName}
                               {currentChannel.createdBy === member._id &&
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <IconCrownFilled size={16} color="var(--owner)" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Group Owner
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <IconCrownFilled size={16} color="var(--owner)" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Group Owner
+                                  </TooltipContent>
+                                </Tooltip>
                               }
                             </Button>
                           </PopoverTrigger>
                         </ContextMenuTrigger>
-                        <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
+                        <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-sm">
                           <UserDetails user={member} size="sm" />
                         </PopoverContent>
                       </Popover>
-                      <ContextMenuContent>
+                      <ContextMenuContent className="p-2 w-50">
                         <DialogTrigger asChild>
                           <ContextMenuItem>
                             Profile
                           </ContextMenuItem>
                         </DialogTrigger>
+                        {currentUserInfo?._id !== member._id && (
+                          <>
+                            <ContextMenuItem>
+                              Mention
+                            </ContextMenuItem>
+                            <ContextMenuItem>
+                              Message
+                            </ContextMenuItem>
+                            <ContextMenuItem>
+                              Call
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            {currentUserInfo?._id === currentChannel.createdBy ?
+                              <>
+                                <ContextMenuItem onClick={() =>
+
+                                  // console.log({ channelId: currentChannel._id, memberId: member._id, removedBy: currentUserInfo._id })
+                                  removeGroupChannelMembers({ channelId: currentChannel._id, data: { memberToRemove: member._id, removedBy: currentUserInfo._id } })
+                                } variant="destructive">
+                                  Remove From Group
+                                </ContextMenuItem>
+                                <ContextMenuItem variant="destructive">
+                                  Make Group Owner
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                <ContextMenuSub>
+                                  <ContextMenuSubTrigger>Invite to Server</ContextMenuSubTrigger>
+                                  <ContextMenuSubContent className="w-fit">
+                                    {currentUserChannelServers.length > 0 ? (
+                                      currentUserChannelServers.map((server) => <ContextMenuItem
+                                        onClick={() => sendServerInvitationLink({
+                                          sendTo: extractDirectChannelFromMembers(currentUserInfo._id, currentUserChannels, member._id)?._id || "",
+                                          invitationLink: {
+                                            link: server?.serverInvitationLink?.link || "",
+                                            id: server?.serverInvitationLink?.id || "",
+                                          },
+                                        })}
+                                        key={server._id}>{server.groupOrServerName}</ContextMenuItem>)
+                                    ) : (
+                                      <Empty className="w-full flex items-center justify-center">
+                                        <EmptyHeader>
+                                          <EmptyMedia variant="default">
+                                            <IconAtOff className="size-12 text-muted-foreground" />
+                                          </EmptyMedia>
+                                          <EmptyTitle>No Servers found</EmptyTitle>
+                                          <EmptyDescription>
+                                            You are not in any servers to invite this @{member?.displayName || ""} to.
+                                          </EmptyDescription>
+                                        </EmptyHeader>
+                                      </Empty>
+                                    )}
+                                  </ContextMenuSubContent>
+                                </ContextMenuSub>
+                                <ContextMenuItem onClick={() => isTheUserFriend(currentUserInfo, member?._id || "") ? removeFriend({ friendId: member?._id || "" }) : addFriend({ sender: currentUserInfo, username: member?.username || "" })}>
+                                  {isTheUserFriend(currentUserInfo, member?._id || "") ? "Remove Friend" : "Add Friend"}
+                                </ContextMenuItem>
+                              </>
+                              :
+                              <>
+                                <ContextMenuSub>
+                                  <ContextMenuSubTrigger>Invite to Server</ContextMenuSubTrigger>
+                                  <ContextMenuSubContent className="w-fit">
+                                    {currentUserChannelServers.length > 0 ? (
+                                      currentUserChannelServers.map((server) =>
+                                        <ContextMenuItem
+                                          onClick={() => sendServerInvitationLink({
+                                            sendTo: extractDirectChannelFromMembers(currentUserInfo._id, currentUserChannels, member._id)?._id || "",
+                                            invitationLink: {
+                                              link: server?.serverInvitationLink?.link || "",
+                                              id: server?.serverInvitationLink?.id || "",
+                                            },
+                                          })}
+                                          key={server._id}
+                                        >
+                                          {server.groupOrServerName}
+                                        </ContextMenuItem>)
+                                    ) : (
+                                      <Empty className="w-full flex items-center justify-center">
+                                        <EmptyHeader>
+                                          <EmptyMedia variant="default">
+                                            <IconAtOff className="size-12 text-muted-foreground" />
+                                          </EmptyMedia>
+                                          <EmptyTitle>No Servers found</EmptyTitle>
+                                          <EmptyDescription>
+                                            You are not in any servers to invite this @{member?.displayName || ""} to.
+                                          </EmptyDescription>
+                                        </EmptyHeader>
+                                      </Empty>
+                                    )}
+                                  </ContextMenuSubContent>
+                                </ContextMenuSub>
+                                <ContextMenuItem onClick={() => isTheUserFriend(currentUserInfo, member?._id || "") ? removeFriend({ friendId: member?._id || "" }) : addFriend({ sender: currentUserInfo, username: member?.username || "" })}>
+                                  {isTheUserFriend(currentUserInfo, member?._id || "") ? "Remove Friend" : "Add Friend"}
+                                </ContextMenuItem>
+                              </>
+                            }
+                            <ContextMenuSeparator />
+                          </>
+                        )}
+                        <ContextMenuItem className="justify-between">
+                          Copy User ID
+                          <IconIdBadge size={18} />
+                        </ContextMenuItem>
                       </ContextMenuContent>
                       <DialogContent className="max-w-5xl! pb-0 h-[50vh]! overflow-y-auto">
                         <VisuallyHidden.Root>
@@ -325,23 +430,21 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                           </Avatar>
                           {member.displayName}
                           {currentChannel.createdBy === member._id &&
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex">
-                                    <IconCrownFilled size={16} color="var(--owner)" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Server Owner
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                  <IconCrownFilled size={16} color="var(--owner)" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Server Owner
+                              </TooltipContent>
+                            </Tooltip>
                           }
                         </Button>
                       </PopoverTrigger>
                     </ContextMenuTrigger>
-                    <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-80 p-0">
+                    <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} side="left" className="w-sm">
                       <UserDetails user={member} size="sm" />
                     </PopoverContent>
                   </Popover>
@@ -503,7 +606,7 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
           </Button>
         )}
       </div>
-    </section>
+    </section >
   );
 };
 // Function to check if messages should be grouped

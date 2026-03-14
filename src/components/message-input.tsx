@@ -25,7 +25,7 @@ import { ConfigPrefix, RecordingState } from "~/interfaces/app.interface";
 import useUpload from "~/hooks/use-upload";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Channel, ChannelType } from "~/interfaces/channels.interface";
 import { SHORT_LOGO_URL } from "~/constants/constants";
@@ -543,7 +543,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
       attributes: {
         class: cn(
           "prose prose-sm dark:prose-invert max-w-none focus:outline-none px-3 leading-relaxed",
-          "[&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:max-w-full [&_.is-editor-empty:first-child::before]:whitespace-normal [&_.is-editor-empty:first-child::before]:[overflow-wrap:anywhere]"
+          "[&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:max-w-full [&_.is-editor-empty:first-child::before]:whitespace-normal [&_.is-editor-empty:first-child::before]:[overflow-wrap:anywhere] is-editor-empty:first-child::before]:truncate"
         ),
       },
       handleKeyDown: (view, event) => {
@@ -709,24 +709,22 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
                       unoptimized
                     />
                   </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="icon-xs"
-                          type="button"
-                          className="absolute -top-1.5 -right-1.5 size-5 rounded-full"
-                          onClick={() => removeAttachment(index)}
-                        >
-                          <IconX size={12} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Remove attachment
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="icon-xs"
+                        type="button"
+                        className="absolute -top-1.5 -right-1.5 size-5 rounded-full"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <IconX size={12} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Remove attachment
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>

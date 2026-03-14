@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { setIsPinnedMessagesOpen, setShowChannelDetails } from "~/redux/slices/app/app-slice";
-import { ActiveUI } from "~/interfaces/app.interface";
+import { ActiveUI, FriendsSelectorView } from "~/interfaces/app.interface";
 import { ChannelType, type Channel } from "~/interfaces/channels.interface";
 import { getChannelTypeLabel, getInitialsFallback } from "~/lib/utils";
 import { SHORT_LOGO_URL } from "~/constants/constants";
@@ -27,6 +27,7 @@ import PinnedMessagesContent from "./pinned-messages-content";
 import SearchInput from "./search-input";
 import ChannelEditDialog from "./channel-edit-dialog";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
+import FriendsSelector from "../friends-selector";
 
 interface DMGroupHeaderBarProps {
   channel: Channel | null;
@@ -233,7 +234,11 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
         </Popover>
 
         {/* Add Friends */}
-        <Popover open={isAddFriendsPopoverOpen} onOpenChange={setIsAddFriendsPopoverOpen}>
+
+        <FriendsSelector friends={currentUserInfo.friends}
+          currentUser={currentUserInfo}
+          view={FriendsSelectorView.CHANNEL} />
+        {/* <Popover open={isAddFriendsPopoverOpen} onOpenChange={setIsAddFriendsPopoverOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
@@ -245,9 +250,11 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
             <TooltipContent>Add Friends to DM</TooltipContent>
           </Tooltip>
           <PopoverContent className="w-md px-1">
-            <div className="p-2">Add friends content</div>
+            <FriendsSelector friends={currentUserInfo.friends}
+              currentUser={currentUserInfo}
+              view={FriendsSelectorView.CHANNEL} />
           </PopoverContent>
-        </Popover>
+        </Popover> */}
 
         {/* Show/Hide Details */}
         <Tooltip>

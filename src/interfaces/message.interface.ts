@@ -76,4 +76,6 @@ export enum MessageType {
   CALL_END_MSG_SYSTEM = 'CallEndMessageSystem',
   CALL_MISSED_MSG_SYSTEM = 'CallMissedMessageSystem',
   SERVER_INVITATION = 'ServerInvitation',
+  REMOVAL_MSG_SYSTEM = 'RemovalMessageSystem',
+  ADDING_MSG_SYSTEM = 'AddingMessageSystem',
 }
