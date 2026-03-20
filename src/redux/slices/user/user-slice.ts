@@ -204,7 +204,11 @@ export const userSlice = createSlice({
       state.channelsInfo = state.channelsInfo.map((channel) => (channel._id === action.payload.channelId ? { ...channel, members: channel.members.filter((m) => m._id !== action.payload.removedMemberId) } : channel));
     },
     removeChannelFromList: (state, action: PayloadAction<string>) => {
+
       state.channelsInfo = state.channelsInfo.filter((channel) => channel._id !== action.payload);
+    },
+    setGroupNewOwnership: (state, action: PayloadAction<{ channelId: string, newOwner: string }>) => {
+      state.channelsInfo = state.channelsInfo.map((channel) => (channel._id === action.payload.channelId ? { ...channel, createdBy: action.payload.newOwner } : channel));
     },
   },
 });
@@ -226,6 +230,7 @@ export const {
   addMembersToChannel,
   addServerChannel,
   removeMemberFromChannel,
-  removeChannelFromList
+  removeChannelFromList,
+  setGroupNewOwnership,
 } = userSlice.actions;
 export default userSlice.reducer;

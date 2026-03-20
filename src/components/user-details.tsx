@@ -28,10 +28,9 @@ import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarImage } from "./ui/avatar";
 import ReactionPicker from "./reaction-picker";
-import { Input } from "./ui/input";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MessageType } from "~/interfaces/message.interface";
-import { useSendMessageMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
+import { useCreateChannelMutation, useSendMessageMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -56,10 +55,16 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
   const mutualServers = getMutualServers(currentUserChannels, user);
   const [sendFriendRequest] = useSendFriendRequestMutation();
   const [removeFriend] = useRemoveFriendMutation();
+  const [createChannel] = useCreateChannelMutation();
   const [sendServerInvitationLink] = useSendServerInvitationLinkMutation();
   const [currentEmoji, setCurrentEmoji] = useState<string>("😊")
   const [newMessage, setNewMessage] = useState<string>("")
+  const messageInputRef = useRef<HTMLDivElement>(null)
   const [sendMessage] = useSendMessageMutation();
+  const isCurrentUser = currentUser._id === user._id;
+  const normalizeEditableText = (value: string) =>
+    value.replace(/\u00A0/g, " ").replace(/\r?\n/g, "").trim();
+  const isMessageInputEmpty = normalizeEditableText(newMessage).length === 0;
   const addEmojiToMessage = (emoji: string) => {
     // Check if emoji already exists in the message to prevent duplicates
     if (!newMessage.includes(emoji)) {
@@ -88,25 +93,62 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
     }
   };
 
-  const handleSendMessage = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const inputElement = messageInputRef.current;
+    if (!inputElement) return;
+
+    // Keep DOM content in sync when message is changed externally (emoji picker/send reset).
+    if (inputElement.innerText !== newMessage) {
+      inputElement.innerText = newMessage;
+    }
+  }, [newMessage]);
+
+  const handleSendMessage = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter") {
+      e.preventDefault();
       if (newMessage.trim().length === 0) return;
-      sendMessage({
-        referenceId: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
-        message: {
-          type: "doc",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: newMessage }]
-            }
-          ]
-        },
-        sentBy: currentUser._id,
-        type: MessageType.TEXT,
-      }).unwrap().then(() => {
-        setNewMessage("")
-      })
+      if (!isTheUserFriend(currentUser, user._id)) {
+        createChannel({
+          members: [currentUser._id, user._id],
+          type: ChannelType.Direct,
+        })
+          .unwrap()
+          .then((res) => {
+            sendMessage({
+              referenceId: res.data.channel._id,
+              message: {
+                type: "doc",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: newMessage }]
+                  }
+                ]
+              },
+              sentBy: currentUser._id,
+              type: MessageType.TEXT,
+            }).unwrap().then(() => {
+              setNewMessage("")
+            })
+          });
+      } else {
+        sendMessage({
+          referenceId: extractDirectChannelFromMembers(currentUser._id, currentUserChannels, user._id)?._id || "",
+          message: {
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: newMessage }]
+              }
+            ]
+          },
+          sentBy: currentUser._id,
+          type: MessageType.TEXT,
+        }).unwrap().then(() => {
+          setNewMessage("")
+        })
+      }
     }
   }
 
@@ -347,9 +389,9 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
           <Dialog>
             <div className="w-full flex flex-col gap-4">
               <div className="relative w-full h-30 bg-cover-placeholder rounded-t-md">
-                {isTheUserFriend(currentUser, user._id) &&
+                {!isCurrentUser &&
                   <div className="flex items-center gap-2 absolute top-2 right-2">
-                    <Tooltip>
+                    {isTheUserFriend(currentUser, user._id) ? <Tooltip>
                       <DropdownMenu>
                         <TooltipTrigger asChild>
                           <DropdownMenuTrigger asChild>
@@ -363,7 +405,16 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <TooltipContent>Friends</TooltipContent>
-                    </Tooltip>
+                    </Tooltip> :
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button onClick={() => onSendFriendRequestSubmit(user.username)} variant="secondary" size="icon">
+                            <IconUserPlus size={16} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Add Friend</TooltipContent>
+                      </Tooltip>
+                    }
 
                     <Tooltip>
                       <DropdownMenu>
@@ -416,7 +467,11 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                   </div>}
                 <div className="absolute -bottom-10 left-4">
                   <DialogTrigger asChild>
-                    <Avatar className="size-20 cursor-pointer">
+                    <Avatar style={
+                      user.profilePicture === SHORT_LOGO_URL && user.profilePictureBannerColor
+                        ? { backgroundColor: user.profilePictureBannerColor }
+                        : undefined
+                    } className="size-20 cursor-pointer">
                       <AvatarImage
                         className="hover:grayscale transition-all duration-300"
                         src={user.profilePicture}
@@ -427,7 +482,7 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                     </Avatar>
                   </DialogTrigger>
                 </div>
-                {!isTheUserFriend(currentUser, user._id) && <ObsessionBubble haveObsession={!!user.obsession?.text?.trim() || !!user.obsession?.emoji} prompt={`What's on your mind, ${user.displayName}?`} currentUserInfo={currentUser} />}
+                {isCurrentUser && <ObsessionBubble haveObsession={!!user.obsession?.text?.trim() || !!user.obsession?.emoji} prompt={`What's on your mind, ${user.displayName}?`} currentUserInfo={currentUser} />}
               </div>
               <div className="px-4 pt-8 pb-4 flex flex-col items-start gap-2">
                 <div className="flex flex-col items-start">
@@ -489,27 +544,42 @@ const UserDetails: React.FC<{ user: FriendInterface | User; size: "sm" | "md" | 
                     <p className="text-muted-foreground text-sm">{user.bio}</p>
                   </div>
                 }
-                {isTheUserFriend(currentUser, user._id) ? <div className="relative w-full">
-                  <Input
-                    autoComplete="off"
-                    type="text"
-                    className="bg-muted h-11 border-main-foreground w-full"
-                    placeholder={`Message @${user.displayName}`}
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={handleSendMessage}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <ReactionPicker isShortcut={false} currentEmoji={currentEmoji} setCurrentEmoji={setCurrentEmoji} isMessageInput={false} addEmojiToMessage={addEmojiToMessage}
-                    />
-                  </div>
-                </div> :
+                {isCurrentUser ? (
                   <Button variant="default" className="w-full h-11">
                     <Link href="#" className="flex items-center gap-2">
                       <IconUserEdit size={16} />
                       Edit Profile
                     </Link>
                   </Button>
+                ) :
+                  <div className="relative w-full">
+                    <div
+                      data-slot="input"
+                      className="file:text-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input bg-muted border-main-foreground text-foreground w-full min-w-0 rounded-md border min-h-11 max-h-32 overflow-y-auto whitespace-pre-wrap wrap-break-word px-3 py-2.5 pr-14 text-sm shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
+                      role="textbox"
+                      aria-label={`Message @${user.displayName}`}
+                      contentEditable
+                      ref={messageInputRef}
+                      onInput={(e) => setNewMessage(e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (normalizeEditableText(e.currentTarget.innerText).length === 0) {
+                          e.currentTarget.innerText = "";
+                          setNewMessage("");
+                        }
+                      }}
+                      onKeyDown={handleSendMessage}
+                      suppressContentEditableWarning
+                    />
+                    {isMessageInputEmpty && (
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        {`Message @${user.displayName}`}
+                      </span>
+                    )}
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <ReactionPicker isShortcut={false} currentEmoji={currentEmoji} setCurrentEmoji={setCurrentEmoji} isMessageInput={false} addEmojiToMessage={addEmojiToMessage}
+                      />
+                    </div>
+                  </div>
                 }
               </div>
             </div>

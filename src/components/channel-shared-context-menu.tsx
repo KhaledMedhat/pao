@@ -20,6 +20,8 @@ import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import UserDetails from "./user-details";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { isTheUserFriend } from "~/lib/utils";
+import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
 
 const ChannelSharedContextMenu: React.FC<{ channel: Channel; children: React.ReactNode }> = ({ channel, children }) => {
   const dispatch = useAppDispatch();
@@ -27,6 +29,7 @@ const ChannelSharedContextMenu: React.FC<{ channel: Channel; children: React.Rea
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const currentUserChannelServers = useAppSelector(selectCurrentUserChannels).filter((c) => c.type === ChannelType.Server);
   const [removeFriend] = useRemoveFriendMutation();
+  const [addFriend] = useSendFriendRequestMutation();
   const renderContextMenuItems = useCallback(() => {
     switch (channel.type) {
       case ChannelType.Direct:
@@ -59,10 +62,9 @@ const ChannelSharedContextMenu: React.FC<{ channel: Channel; children: React.Rea
               </ContextMenuSubContent>
             </ContextMenuSub>
             <ContextMenuItem
-              onClick={async () => await removeFriend({ friendId: channel.directChannelOtherMember?._id || "" })}
-              variant="destructive"
+              onClick={() => isTheUserFriend(currentUserInfo, channel.directChannelOtherMember?._id || "") ? removeFriend({ friendId: channel.directChannelOtherMember?._id || "" }) : addFriend({ sender: currentUserInfo, username: channel.directChannelOtherMember?.username || "" })}
             >
-              Remove Friend
+              {isTheUserFriend(currentUserInfo, channel.directChannelOtherMember?._id || "") ? "Remove Friend" : "Add Friend"}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuSub>

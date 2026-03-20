@@ -1,6 +1,6 @@
 "use client";
 
-import { useAppSelector } from "~/redux/hooks";
+import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectActiveChannelRoom, selectCurrentChannel, selectIsReplying, selectReplyingToMessage, selectShowChannelDetails } from "~/redux/slices/app/app-selector";
 import { selectCurrentUserChannels, selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import MessageInput from "./message-input";
@@ -34,7 +34,10 @@ import { Label } from "./ui/label";
 import ChannelStarterMessage from "./channel-starter-message";
 import { SHORT_LOGO_URL } from "~/constants/constants";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "./ui/empty";
-import { useRemoveGroupChannelMembersMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
+import { useAssignGroupNewOwnershipMutation, useCreateChannelMutation, useRemoveGroupChannelMembersMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
+import { ActiveUI } from "~/interfaces/app.interface";
+import { setActiveUI, setCurrentChannelId, setPendingMention } from "~/redux/slices/app/app-slice";
+import { useRouter } from "next/navigation";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
@@ -42,6 +45,8 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentActiveChannelRoom = useAppSelector(selectActiveChannelRoom);
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const currentUserChannels = useAppSelector(selectCurrentUserChannels);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
   const { messages, isLoading, isLoadingMore, hasMore, loadMoreMessages, isSomeoneTyping } = useChannelMessages(channelId, currentActiveChannelRoom?._id);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -52,12 +57,13 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const prevScrollHeightRef = useRef<number>(0);
   const isReplying = useAppSelector(selectIsReplying);
   const replyingToMessage = useAppSelector(selectReplyingToMessage);
-  const mutualServers = getMutualServers(currentUserChannels, currentChannel?.directChannelOtherMember);
   const [removeFriend] = useRemoveFriendMutation();
   const [addFriend] = useSendFriendRequestMutation();
   const currentUserChannelServers = currentUserChannels.filter((c) => c.type === ChannelType.Server);
   const [sendServerInvitationLink] = useSendServerInvitationLinkMutation();
   const [removeGroupChannelMembers] = useRemoveGroupChannelMembersMutation();
+  const [assignGroupNewOwnership] = useAssignGroupNewOwnershipMutation();
+  const [createChannel] = useCreateChannelMutation();
   const inputPlaceholder = useMemo(() => {
     if (currentChannel?.type === ChannelType.Direct && currentChannel.directChannelOtherMember) {
       return `Message @${currentChannel.directChannelOtherMember.displayName}`;
@@ -290,10 +296,33 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                         </DialogTrigger>
                         {currentUserInfo?._id !== member._id && (
                           <>
-                            <ContextMenuItem>
+                            <ContextMenuItem onClick={() => {
+                              dispatch(setPendingMention({
+                                id: member._id,
+                                label: member.displayName,
+                                channelId: currentChannel._id,
+                              }));
+                            }}>
                               Mention
                             </ContextMenuItem>
-                            <ContextMenuItem>
+                            <ContextMenuItem onClick={() => {
+                              if (!isTheUserFriend(currentUserInfo, member?._id || "")) {
+                                createChannel({
+                                  members: [currentUserInfo._id, member._id],
+                                  type: ChannelType.Direct,
+                                })
+                                  .unwrap()
+                                  .then((res) => {
+                                    dispatch(setCurrentChannelId(res.data.channel._id));
+                                    dispatch(setActiveUI(ActiveUI.DIRECT_MESSAGES));
+                                    router.push(`/dm/${res.data.route}`);
+                                  });
+                              } else {
+                                dispatch(setActiveUI(ActiveUI.DIRECT_MESSAGES))
+                                dispatch(setCurrentChannelId(extractDirectChannelFromMembers(currentUserInfo._id, currentUserChannels, member._id)?._id || ""))
+                                router.push(`/dm/${extractDirectChannelFromMembers(currentUserInfo._id, currentUserChannels, member._id)?._id || ""}`)
+                              }
+                            }}>
                               Message
                             </ContextMenuItem>
                             <ContextMenuItem>
@@ -303,13 +332,11 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                             {currentUserInfo?._id === currentChannel.createdBy ?
                               <>
                                 <ContextMenuItem onClick={() =>
-
-                                  // console.log({ channelId: currentChannel._id, memberId: member._id, removedBy: currentUserInfo._id })
                                   removeGroupChannelMembers({ channelId: currentChannel._id, data: { memberToRemove: member._id, removedBy: currentUserInfo._id } })
                                 } variant="destructive">
                                   Remove From Group
                                 </ContextMenuItem>
-                                <ContextMenuItem variant="destructive">
+                                <ContextMenuItem onClick={() => assignGroupNewOwnership({ channelId: currentChannel._id, data: { newOwner: member._id } })} variant="destructive">
                                   Make Group Owner
                                 </ContextMenuItem>
                                 <ContextMenuSeparator />

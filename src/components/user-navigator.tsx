@@ -176,7 +176,7 @@ const UserNavigator = () => {
                 {currentUserInfo.bio && <p className="text-sm">{currentUserInfo.bio}</p>}
 
                 <Card className="w-full p-2 mt-2">
-                  <CardContent className="px-2 space-y-2">
+                  <CardContent className="px-0 space-y-2">
                     <Button variant="ghost" className="w-full justify-start">
                       <IconPencil size={16} />
                       Edit Profile
@@ -250,7 +250,7 @@ const UserNavigator = () => {
                 </Card>
 
                 <Card className="w-full p-2 mt-2">
-                  <CardContent className="px-2 space-y-2">
+                  <CardContent className="px-0 space-y-2">
                     <Button variant="ghost" className="w-full justify-start" onClick={() => {
                       navigator.clipboard.writeText(currentUserInfo._id);
                       sileo.success({

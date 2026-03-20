@@ -145,7 +145,7 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
                             : undefined
                         }>
                           <AvatarImage src={m.profilePicture} />
-                          <AvatarFallback>{getInitialsFallback(m.displayName || "")}</AvatarFallback>
+                          <AvatarFallback className="text-[10px]">{getInitialsFallback(m.displayName || "")}</AvatarFallback>
                         </Avatar>
                       ))}
                     </AvatarGroupGrid>
@@ -234,27 +234,9 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
         </Popover>
 
         {/* Add Friends */}
-
         <FriendsSelector friends={currentUserInfo.friends}
           currentUser={currentUserInfo}
           view={FriendsSelectorView.CHANNEL} />
-        {/* <Popover open={isAddFriendsPopoverOpen} onOpenChange={setIsAddFriendsPopoverOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button size="icon" variant="ghost" className="rounded-full">
-                  <IconUsersPlus size={20} />
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent>Add Friends to DM</TooltipContent>
-          </Tooltip>
-          <PopoverContent className="w-md px-1">
-            <FriendsSelector friends={currentUserInfo.friends}
-              currentUser={currentUserInfo}
-              view={FriendsSelectorView.CHANNEL} />
-          </PopoverContent>
-        </Popover> */}
 
         {/* Show/Hide Details */}
         <Tooltip>

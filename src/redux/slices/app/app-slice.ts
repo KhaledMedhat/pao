@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ActiveUI, AppInitialState, FriendsView, MessageRequestsView } from "~/interfaces/app.interface";
+import { Channel } from "~/interfaces/channels.interface";
 import { MessageInterface } from "~/interfaces/message.interface";
 
 const initialState: AppInitialState = {
@@ -15,6 +16,11 @@ const initialState: AppInitialState = {
   replyingToMessage: null,
   activeChannelRoom: null,
   openServerInvitationDialog: false,
+  removedFromChannel: null,
+  isGettingRemovedFromChannel: false,
+  addedToChannel: null,
+  isGettingAddedToChannel: false,
+  pendingMention: null,
 };
 
 export const appSlice = createSlice({
@@ -57,6 +63,21 @@ export const appSlice = createSlice({
     setOpenServerInvitationDialog: (state, action: PayloadAction<boolean>) => {
       state.openServerInvitationDialog = action.payload;
     },
+    setIsGettingRemovedFromChannel: (state, action: PayloadAction<boolean>) => {
+      state.isGettingRemovedFromChannel = action.payload;
+    },
+    setRemovedFromChannel: (state, action: PayloadAction<Channel | null>) => {
+      state.removedFromChannel = action.payload;
+    },
+    setAddedToChannel: (state, action: PayloadAction<Channel | null>) => {
+      state.addedToChannel = action.payload;
+    },
+    setIsGettingAddedToChannel: (state, action: PayloadAction<boolean>) => {
+      state.isGettingAddedToChannel = action.payload;
+    },
+    setPendingMention: (state, action: PayloadAction<{ id: string; label: string; channelId: string } | null>) => {
+      state.pendingMention = action.payload;
+    },
   },
 });
 
@@ -73,5 +94,10 @@ export const {
   setReplyingToMessage,
   setActiveChannelRoom,
   setOpenServerInvitationDialog,
+  setIsGettingRemovedFromChannel,
+  setRemovedFromChannel,
+  setAddedToChannel,
+  setIsGettingAddedToChannel,
+  setPendingMention,
 } = appSlice.actions;
 export default appSlice.reducer;

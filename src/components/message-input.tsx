@@ -18,8 +18,8 @@ import { Attachment, MessageInterface, MessageType } from "~/interfaces/message.
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import { socketService } from "~/lib/socket";
-import { selectActiveChannelRoom, selectIsReplying, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
-import { setIsReplying, setReplyingToMessage } from "~/redux/slices/app/app-slice";
+import { selectActiveChannelRoom, selectIsReplying, selectPendingMention, selectReplyingToMessage } from "~/redux/slices/app/app-selector";
+import { setIsReplying, setPendingMention, setReplyingToMessage } from "~/redux/slices/app/app-slice";
 import Link from "next/link";
 import { ConfigPrefix, RecordingState } from "~/interfaces/app.interface";
 import useUpload from "~/hooks/use-upload";
@@ -157,6 +157,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { startUpload } = useUpload(ConfigPrefix.CHAT_INPUT_UPLOADER)
   const currentActiveChannelRoom = useAppSelector(selectActiveChannelRoom);
+  const pendingMention = useAppSelector(selectPendingMention);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -564,6 +565,25 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     if (!editor) return;
     editor.chain().focus().insertContent(emoji).run();
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor || !pendingMention) return;
+    if (pendingMention.channelId !== channel?._id) return;
+
+    editor
+      .chain()
+      .focus()
+      .insertContent([
+        {
+          type: "mention",
+          attrs: { id: pendingMention.id, label: pendingMention.label },
+        },
+        { type: "text", text: " " },
+      ])
+      .run();
+
+    dispatch(setPendingMention(null));
+  }, [editor, pendingMention, channel?._id, dispatch]);
 
   const handleSend = useCallback(async () => {
     const hasContent = editor && !editor.isEmpty;

@@ -1,3 +1,4 @@
+import { Channel } from "./channels.interface";
 import { MessageInterface } from "./message.interface";
 
 export enum ConfigPrefix {
@@ -53,6 +54,11 @@ export interface AppInitialState {
   replyingToMessage: MessageInterface | null;
   activeChannelRoom: { _id: string, name: string, type?: string } | null;
   openServerInvitationDialog: boolean;
+  removedFromChannel: Channel | null;
+  isGettingRemovedFromChannel: boolean;
+  addedToChannel: Channel | null;
+  isGettingAddedToChannel: boolean;
+  pendingMention: { id: string; label: string; channelId: string } | null;
 }
 
 export type RecordingState = "idle" | "recording" | "paused"

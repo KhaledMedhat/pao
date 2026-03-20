@@ -51,7 +51,7 @@ import { NestErrorResponse } from "~/interfaces/error.interface";
 import { Spinner } from "./ui/spinner";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "./ui/scroll-area";
-import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarGroupGrid, AvatarImage } from "./ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Badge } from "./ui/badge";
 import { useSearchUsersMutation } from "~/redux/apis/user.api";
@@ -989,17 +989,48 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                   }}
                                 >
                                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <Avatar
-                                      style={
-                                        channel.type === ChannelType.Direct && channel.directChannelOtherMember?.profilePicture === SHORT_LOGO_URL && channel.directChannelOtherMember?.profilePictureBannerColor
-                                          ? { backgroundColor: channel.directChannelOtherMember.profilePictureBannerColor }
-                                          : undefined
-                                      }
-                                    >
-                                      <AvatarImage src={channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.profilePicture || "" : channel.groupOrServerLogo || ""} alt={channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.displayName || "" : channel.groupOrServerName || ""} />
-                                      <AvatarFallback>{getInitialsFallback(channel.type === ChannelType.Direct ? channel.directChannelOtherMember?.displayName || "" : channel.groupOrServerName || "")}</AvatarFallback>
-                                      {channel.type === ChannelType.Direct && <AvatarBadge className="size-2.5!" variant={channel.directChannelOtherMember?.status?.type} />}
-                                    </Avatar>
+                                    {channel?.type === ChannelType.Group ?
+                                      channel.groupOrServerLogo ? (
+                                        <Avatar>
+                                          <AvatarImage
+                                            src={
+                                              channel?.groupOrServerLogo
+                                            }
+                                            alt={channel?.groupOrServerName}
+                                          />
+                                          <AvatarFallback>
+                                            {getInitialsFallback(channel?.groupOrServerName)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      ) : (
+                                        <AvatarGroupGrid>
+                                          {channel?.members.filter((m) => m._id !== currentUserInfo._id).slice(0, 2).map((m, index) => (
+                                            <Avatar key={`${m._id}-${index}`} style={
+                                              m.profilePicture === SHORT_LOGO_URL && m.profilePictureBannerColor
+                                                ? { backgroundColor: m.profilePictureBannerColor }
+                                                : undefined
+                                            }>
+                                              <AvatarImage src={m.profilePicture} />
+                                              <AvatarFallback>{getInitialsFallback(m.displayName || "")}</AvatarFallback>
+                                            </Avatar>
+                                          ))}
+                                        </AvatarGroupGrid>
+                                      )
+                                      :
+
+                                      <Avatar
+                                        style={
+                                          channel.type === ChannelType.Direct && channel.directChannelOtherMember?.profilePicture === SHORT_LOGO_URL && channel.directChannelOtherMember?.profilePictureBannerColor
+                                            ? { backgroundColor: channel.directChannelOtherMember.profilePictureBannerColor }
+                                            : undefined
+                                        }
+                                      >
+                                        <AvatarImage src={channel.directChannelOtherMember?.profilePicture} alt={channel.directChannelOtherMember?.displayName} />
+                                        <AvatarFallback>{getInitialsFallback(channel.directChannelOtherMember?.displayName)}</AvatarFallback>
+                                        <AvatarBadge className="size-2.5!" variant={channel.directChannelOtherMember?.status?.type} />
+                                      </Avatar>
+                                    }
+
                                     <div className="flex flex-col items-start min-w-0 flex-1">
                                       <p className="font-semibold text-sm text-muted-foreground truncate max-w-[150px]">
                                         {channel.type === ChannelType.Direct

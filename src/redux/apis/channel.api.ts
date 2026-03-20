@@ -126,6 +126,14 @@ export const channelApi = createApi({
       }),
     }),
 
+    assignGroupNewOwnership: builder.mutation<void, { channelId: string; data: { newOwner: string } }>({
+      query: (args) => ({
+        url: `/channels/assign-group-new-ownership/${args.channelId}`,
+        method: "PATCH",
+        body: args.data,
+      }),
+    }),
+
   }),
 });
 
@@ -146,4 +154,5 @@ export const {
   useJoinServerMutation,
   useCreateServerChannelMutation,
   useRemoveGroupChannelMembersMutation,
+  useAssignGroupNewOwnershipMutation,
 } = channelApi;

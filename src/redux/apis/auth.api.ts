@@ -24,6 +24,7 @@ import {
   removeMemberFromChannel,
   setChannels,
   setFriendRequests,
+  setGroupNewOwnership,
   setUpdatedFriend,
   setUserInfo,
   setUserLoggingInStatus,
@@ -34,6 +35,7 @@ import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.i
 import { socketService } from "~/lib/socket";
 import { getDirectMessageChannelOtherMember } from "~/lib/utils";
 import { PinnedMessageInterface } from "~/interfaces/message.interface";
+import { setAddedToChannel, setIsGettingAddedToChannel, setIsGettingRemovedFromChannel, setRemovedFromChannel } from "../slices/app/app-slice";
 
 function isHydrateAction(action: Action): action is PayloadAction<RootState> {
   return action.type === HYDRATE;
@@ -212,16 +214,24 @@ export const authApi = createApi({
             dispatch(removeMemberFromChannel({ channelId: data.channelId, removedMemberId: data.removedMemberId }));
           };
 
-          const handleGetRemovedFromChannel = (data: { channelId: string }) => {
-            dispatch(removeChannelFromList(data.channelId));
+          const handleGetRemovedFromChannel = (data: { channel: Channel }) => {
+            dispatch(setRemovedFromChannel(data.channel));
+            dispatch(removeChannelFromList(data.channel._id));
+            dispatch(setIsGettingRemovedFromChannel(true));
           };
 
           const handleGetAddedToChannel = (data: { channel: Channel }) => {
+            dispatch(setAddedToChannel(data.channel));
             dispatch(addChannel(data.channel));
+            dispatch(setIsGettingAddedToChannel(true));
           };
 
           const handleAddMemberToChannel = (data: { channelId: string, addedMember: FriendInterface }) => {
             dispatch(addMembersToChannel({ members: [data.addedMember], channelId: data.channelId }));
+          };
+
+          const handleAssignGroupNewOwnership = (data: { channelId: string, newOwner: string }) => {
+            dispatch(setGroupNewOwnership({ channelId: data.channelId, newOwner: data.newOwner }));
           };
 
           socket?.on("friendRequest", handleFriendRequest);
@@ -241,6 +251,7 @@ export const authApi = createApi({
           socket?.on("getRemovedFromChannel", handleGetRemovedFromChannel);
           socket?.on("getAddedToChannel", handleGetAddedToChannel);
           socket?.on("memberAddedToChannel", handleAddMemberToChannel);
+          socket?.on("newGroupOwnershipAssigning", handleAssignGroupNewOwnership);
           await cacheEntryRemoved;
           socket?.off("friendRequest", handleFriendRequest);
           socket?.off("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
@@ -259,6 +270,7 @@ export const authApi = createApi({
           socket?.off("getRemovedFromChannel", handleGetRemovedFromChannel);
           socket?.off("getAddedToChannel", handleGetAddedToChannel);
           socket?.off("memberAddedToChannel", handleAddMemberToChannel);
+          socket?.off("newGroupOwnershipAssigning", handleAssignGroupNewOwnership);
         } catch (error) {
           console.error("Socket cache entry error:", error);
         }

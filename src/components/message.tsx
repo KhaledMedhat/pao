@@ -274,7 +274,7 @@ const Message = memo<MessageComponentProps>(
                                                                 </PopoverContent>
                                                             </Popover>
                                                         }
-                                                        {msg.type === "text" && <p>{msg.text} </p>}
+                                                        {msg.type === "text" && <p className="text-muted-foreground">{msg.text} </p>}
                                                         {msg.type === "pin" && msg.attrs && (
                                                             <Button
                                                                 variant="link"
@@ -315,7 +315,7 @@ const Message = memo<MessageComponentProps>(
                                                                 </PopoverContent>
                                                             </Popover>
                                                         }
-                                                        {msg.type === "text" && <p>{msg.text} </p>}
+                                                        {msg.type === "text" && <p className="text-muted-foreground">{msg.text} </p>}
                                                         {msg.type === 'removedMember' && msg.attrs &&
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
@@ -346,7 +346,7 @@ const Message = memo<MessageComponentProps>(
                                                                 </PopoverContent>
                                                             </Popover>
                                                         }
-                                                        {msg.type === "text" && <p>{msg.text} </p>}
+                                                        {msg.type === "text" && <p className="text-muted-foreground">{msg.text} </p>}
                                                         {msg.type === 'addedMember' && msg.attrs &&
                                                             <Popover>
                                                                 <PopoverTrigger asChild>

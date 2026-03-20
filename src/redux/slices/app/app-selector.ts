@@ -13,6 +13,12 @@ export const selectReplyingToMessage = (state: RootState) => state.app.replyingT
 export const selectIsUploadingFile = (state: RootState) => state.app.isUploadingFile;
 export const selectActiveChannelRoom = (state: RootState) => state.app.activeChannelRoom;
 export const selectOpenServerInvitationDialog = (state: RootState) => state.app.openServerInvitationDialog;
+export const selectIsGettingRemovedFromChannel = (state: RootState) => state.app.isGettingRemovedFromChannel;
+export const selectRemovedFromChannel = (state: RootState) => state.app.removedFromChannel;
+export const selectIsGettingAddedToChannel = (state: RootState) => state.app.isGettingAddedToChannel;
+export const selectAddedToChannel = (state: RootState) => state.app.addedToChannel;
+export const selectPendingMention = (state: RootState) => state.app.pendingMention;
+
 export const selectCurrentChannel = createSelector(
   [selectCurrentChannelId, (state: RootState) => state.user.channelsInfo],
   (currentChannelId, channelsInfo) => {

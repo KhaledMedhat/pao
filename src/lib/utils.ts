@@ -136,6 +136,10 @@ export function getMutualServers(currentUserChannels: Channel[], friend: FriendI
  * @returns True if the current user is a friend of the friend, false otherwise
  */
 export function isTheUserFriend(currentUser: User, friendId: string) {
+  if (!friendId || currentUser._id === friendId) {
+    return false;
+  }
+
   return currentUser.friends.some((f) =>
     typeof f === "string" ? f === friendId : f._id === friendId
   );
