@@ -43,7 +43,6 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
   const dispatch = useAppDispatch();
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const [isChannelDialogOpen, setIsChannelDialogOpen] = useState(false);
-  const [isAddFriendsPopoverOpen, setIsAddFriendsPopoverOpen] = useState(false);
   const [unpinMessage] = useUnpinMessageMutation();
   const { scrollContainerRef } = useScrollContext();
 
@@ -254,9 +253,8 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
         </Tooltip>
 
         {/* Search */}
-        <Button variant="ghost" className="hover:bg-transparent p-0 rounded-full">
-          <SearchInput channel={channel} />
-        </Button>
+        <SearchInput channel={channel} messages={messages} onScrollToMessage={scrollToMessage} />
+
       </div>
     </div>
   );

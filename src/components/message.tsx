@@ -31,7 +31,7 @@ import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash
 import { Channel } from "~/interfaces/channels.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
-import { formatDate, getInitialsFallback, scrollToMessage } from "~/lib/utils";
+import { formatDate, getInitialsFallback, isValidUrl, scrollToMessage } from "~/lib/utils";
 import MessageDetails from "./message-details";
 import { REACTION_EMOJIS, SHORT_LOGO_URL } from "~/constants/constants";
 import { EmojiPicker, EmojiPickerContent, EmojiPickerFooter, EmojiPickerSearch } from "./ui/emoji-picker";
@@ -53,6 +53,7 @@ import { useRouter } from "next/navigation";
 import { Spinner } from "./ui/spinner";
 import { ActiveUI } from "~/interfaces/app.interface";
 import { sileo } from "sileo";
+import Link from "next/link";
 
 
 interface MessageComponentProps {
@@ -214,7 +215,7 @@ const Message = memo<MessageComponentProps>(
                                                     className="flex items-center gap-0.5 text-xs text-muted-foreground cursor-pointer"
                                                     onClick={() => scrollToMessage(message.replyMessageId?._id || "", onScrollToMessage)}
                                                 >
-                                                    {message.replyMessageId.message.content?.[0].content?.map((msg, idx) => (
+                                                    {message.replyMessageId.message.content?.[0]?.content?.map((msg, idx) => (
                                                         <span key={idx} className="flex flex-col items-start font-semibold">
                                                             <p>{msg.type === "text" && msg.text}</p>
                                                             {msg.type === "mention" && (
@@ -262,7 +263,7 @@ const Message = memo<MessageComponentProps>(
                                         {/* Message content */}
                                         {message.type === MessageType.PINNED_MSG_SYSTEM &&
                                             <div className="flex items-center gap-1 w-full flex-wrap">
-                                                {message.message.content?.[0].content?.map((msg, idx) => (
+                                                {message.message.content?.[0]?.content?.map((msg, idx) => (
                                                     <span key={idx} className="flex items-start ">
                                                         {msg.type === 'pinnedBy' && msg.attrs &&
                                                             <Popover>
@@ -303,7 +304,7 @@ const Message = memo<MessageComponentProps>(
 
                                         {message.type === MessageType.REMOVAL_MSG_SYSTEM &&
                                             <div className="flex items-center gap-1 w-full flex-wrap">
-                                                {message.message.content?.[0].content?.map((msg, idx) => (
+                                                {message.message.content?.[0]?.content?.map((msg, idx) => (
                                                     <span key={idx} className="flex items-start ">
                                                         {msg.type === 'removedBy' && msg.attrs &&
                                                             <Popover>
@@ -334,7 +335,7 @@ const Message = memo<MessageComponentProps>(
 
                                         {message.type === MessageType.ADDING_MSG_SYSTEM &&
                                             <div className="flex items-center gap-1 w-full flex-wrap">
-                                                {message.message.content?.[0].content?.map((msg, idx) => (
+                                                {message.message.content?.[0]?.content?.map((msg, idx) => (
                                                     <span key={idx} className="flex items-start ">
                                                         {msg.type === 'addedBy' && msg.attrs &&
                                                             <Popover>
@@ -388,7 +389,7 @@ const Message = memo<MessageComponentProps>(
 
                                                     {message.type === MessageType.SERVER_INVITATION ?
                                                         <div className="flex items-start flex-col gap-2">
-                                                            {message.message.content?.[0].content?.map((msg) => (
+                                                            {message.message.content?.[0]?.content?.map((msg) => (
                                                                 msg.type === "link" &&
                                                                 <Button disabled={isJoiningServer} onClick={handleJoinServer} key={msg.text} variant="link" className="text-sm text-accent/40 p-0 h-fit">{msg.text}</Button>
                                                             ))}
@@ -434,7 +435,7 @@ const Message = memo<MessageComponentProps>(
                                                         <div className="text-base leading-snug wrap-break-word w-full">
                                                             {isEditing ? (
                                                                 <div className="flex flex-col gap-2 w-full">
-                                                                    <MessageInput channel={channel as Channel} value={message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? ""} isEditing={true} messageId={message._id} setIsEditing={setIsEditing} />
+                                                                    <MessageInput channel={channel as Channel} value={message.message.content?.[0]?.content?.map((msg) => msg.text).join("") ?? ""} isEditing={true} messageId={message._id} setIsEditing={setIsEditing} />
                                                                     <p className="text-xs font-semibold">
                                                                         escape to <span className="text-accent">cancel</span> &#x2022; enter to <span className="text-accent">save</span>
                                                                     </p>
@@ -452,10 +453,11 @@ const Message = memo<MessageComponentProps>(
                                                                         <div className="flex items-start gap-1">
                                                                             {message.message && (
                                                                                 <>
-                                                                                    {" "}
-                                                                                    {message.message.content?.[0].content?.map((msg, idx) => (
+                                                                                    {message.message.content?.[0]?.content?.map((msg, idx) => (
                                                                                         <span key={idx} className="flex flex-col items-start">
-                                                                                            {msg.type === "text" && <p className="break-all">{msg.text}</p>}
+                                                                                            {msg.type === "text" &&
+                                                                                                isValidUrl(msg.text) ? <Link href={msg.text ?? ""} target="_blank" className="text-url-link hover:underline cursor-pointer">{msg.text}</Link> :
+                                                                                                <p className="break-all">{msg.text}</p>}
                                                                                             {msg.type === "mention" && (
                                                                                                 <Popover>
                                                                                                     <PopoverTrigger asChild>
@@ -617,7 +619,7 @@ const Message = memo<MessageComponentProps>(
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
                                                                     onClick={() => {
-                                                                        navigator.clipboard.writeText(message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? "");
+                                                                        navigator.clipboard.writeText(message.message.content?.[0]?.content?.map((msg) => msg.text).join("") ?? "");
                                                                     }}
                                                                     className="justify-between"
                                                                 >
@@ -754,7 +756,7 @@ const Message = memo<MessageComponentProps>(
                                 <ContextMenuSeparator />
                                 <ContextMenuItem
                                     onClick={() => {
-                                        navigator.clipboard.writeText(message.message.content?.[0].content?.map((msg) => msg.text).join("") ?? "");
+                                        navigator.clipboard.writeText(message.message.content?.[0]?.content?.map((msg) => msg.text).join("") ?? "");
                                     }}
                                     className="justify-between"
                                 >

@@ -617,7 +617,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ placeholder, mentionSuggest
     }
 
     // Upload attachments in background
-    let uploadedFiles: { url: string; name: string; size: number; type: string }[] = [];
+    let uploadedFiles: { url: string; name: string; size: number; type: string, key: string }[] = [];
     if (hasAttachments) {
       const uploadResult = await startUpload(filesToUpload);
       if (uploadResult) {

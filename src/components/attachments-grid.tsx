@@ -30,7 +30,7 @@ interface AttachmentsGridProps {
 const PLAYBACK_SPEEDS = [1, 1.5, 2] as const
 type PlaybackSpeed = typeof PLAYBACK_SPEEDS[number]
 
-function AudioPlayer({ attachment }: { attachment: Attachment }) {
+function AudioPlayer({ attachment, isAlert }: { attachment: Attachment, isAlert?: boolean }) {
     const [isLoading, setIsLoading] = useState(false)
     const [isPlaying, setIsPlaying] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -51,7 +51,7 @@ function AudioPlayer({ attachment }: { attachment: Attachment }) {
 
     // Generate static waveform data based on attachment
     const waveformBars = useRef<number[]>(
-        Array.from({ length: 40 }, () => Math.random() * 0.7 + 0.3)
+        Array.from({ length: isAlert ? 20 : 40 }, () => Math.random() * 0.7 + 0.3)
     ).current
 
     const formatDuration = (seconds: number) => {
@@ -235,11 +235,11 @@ function AudioPlayer({ attachment }: { attachment: Attachment }) {
     }, [isSeekDragging, handleSeekPointerMove, handleSeekPointerUp])
 
     return (
-        <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3 max-w-sm">
+        <div className={`flex items-center gap-3 bg-muted/50 rounded-lg p-3 ${isAlert ? 'max-w-lg' : 'max-w-sm'}`}>
             {/* Play/Pause button with loading spinner */}
             <Button
                 variant="default"
-                size="sm"
+                size={isAlert ? 'xs' : 'sm'}
                 type="button"
                 onClick={handlePlay}
                 disabled={isLoading}
@@ -247,9 +247,9 @@ function AudioPlayer({ attachment }: { attachment: Attachment }) {
                 {isLoading ? (
                     <div className="size-5 border-2 border-accent-foreground border-t-transparent rounded-full animate-spin" />
                 ) : isPlaying ? (
-                    <IconPlayerPauseFilled size={18} />
+                    <IconPlayerPauseFilled size={isAlert ? 12 : 18} />
                 ) : (
-                    <IconPlayerPlayFilled size={18} />
+                    <IconPlayerPlayFilled size={isAlert ? 12 : 18} />
                 )}
             </Button>
 
@@ -330,7 +330,7 @@ function AudioPlayer({ attachment }: { attachment: Attachment }) {
             {/* Playback speed button */}
             <Button
                 variant="secondary"
-                size="sm"
+                size={isAlert ? 'xs' : 'sm'}
                 type="button"
                 className="shrink-0 font-semibold"
                 onClick={cycleSpeed}
@@ -486,7 +486,7 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
                             <DialogTrigger asChild>
                                 <div
                                     onClick={(e) => (isAlert || attachment.isUploading) && e.preventDefault()}
-                                    className={`relative group cursor-pointer overflow-hidden rounded-lg aspect-square ${isAlert ? 'w-[100px]' : 'w-[250px]'}`}
+                                    className={`relative group cursor-pointer overflow-hidden rounded-lg aspect-square ${isAlert ? 'w-[100px]' : 'w-[250px] max-w-[250px]'}`}
                                 >
                                     <div className="relative w-full h-full">
                                         <Image
@@ -693,7 +693,7 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
             {audios.length > 0 && (
                 <div className="space-y-2 mb-2">
                     {audios.map((attachment, index) => (
-                        <AudioPlayer key={index} attachment={attachment} />
+                        <AudioPlayer key={index} attachment={attachment} isAlert={isAlert} />
                     ))}
                 </div>
             )}

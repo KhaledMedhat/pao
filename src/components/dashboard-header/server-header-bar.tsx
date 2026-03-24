@@ -184,9 +184,7 @@ const ServerHeaderBar = memo(function ServerHeaderBar({
         </Tooltip>
 
         {/* Search */}
-        <Button variant="ghost" className="hover:bg-transparent p-0 rounded-full">
-          <SearchInput channel={channel} />
-        </Button>
+        <SearchInput channel={channel} messages={messages} onScrollToMessage={scrollToMessage} />
       </div>
     </div>
   );

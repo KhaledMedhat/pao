@@ -45,6 +45,7 @@
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.28 0 0);
   --sidebar-ring: oklch(0.65 0.2 250);
+  --url-link: oklch(0.55 0.25 264);
 }
 
 .dark {
@@ -89,6 +90,7 @@
   --sidebar-border: oklch(0.28 0 0);
   --sidebar-ring: oklch(0.65 0.2 250);
   --scrollbar-thumb: var(--primary);
+  --url-link: oklch(0.55 0.25 264);
 }
 
 @theme inline {
@@ -138,6 +140,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --scrollbar-thumb: var(--primary);
+  --color-url-link: var(--url-link);
 }
 
 @layer base {

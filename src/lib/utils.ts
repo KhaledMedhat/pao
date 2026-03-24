@@ -421,3 +421,19 @@ export function generateRandomObsessionPrompt(setPrompt: (value: string) => void
   usedIndexes.current.add(index);
   setPrompt(OBSSESSION_PROMPTS[index]);
 }
+
+
+/**
+ * Check if a string is a valid URL
+ * @param text - The text to check
+ * @returns True if the text is a valid URL, false otherwise
+ */
+export function isValidUrl(text: string | undefined) {
+  if (!text) return false;
+  try {
+    new URL(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
