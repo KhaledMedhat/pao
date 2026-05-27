@@ -1,75 +1,38 @@
 import { Channel, ChannelType } from "~/interfaces/channels.interface";
-import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarGroupGrid, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupGrid, AvatarImage } from "./ui/avatar";
 import { getChannelTypeLabel, getInitialsFallback, getMutualServers, isTheUserFriend } from "~/lib/utils";
 import { Button } from "./ui/button";
-import { FriendInterface, User } from "~/interfaces/user.interface";
+import { User } from "~/interfaces/user.interface";
 import { useRemoveFriendMutation } from "~/redux/apis/auth.api";
 import { useSendFriendRequestMutation } from "~/redux/apis/user.api";
-import { MAX_FRIENDS, SHORT_LOGO_URL } from "~/constants/constants";
+import { SHORT_LOGO_URL } from "~/constants/constants";
 import { IconCheck, IconChevronRight, IconPencil, IconSend, IconSettings, IconUsersPlus } from "@tabler/icons-react";
 import ChannelEditDialog from "./dashboard-header/channel-edit-dialog";
-import { useCallback, useId, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Tag, TagInput } from "./ui/tag-input";
-import { ScrollArea } from "./ui/scroll-area";
-import { Checkbox } from "./ui/checkbox";
-import { useAddGroupChannelMembersMutation } from "~/redux/apis/channel.api";
-import { setOpenServerInvitationDialog } from "~/redux/slices/app/app-slice";
-import { useAppDispatch, useAppSelector } from "~/redux/hooks";
+import { useCallback, useState } from "react";
+import { useAppSelector } from "~/redux/hooks";
 import { selectActiveChannelRoom } from "~/redux/slices/app/app-selector";
-import { Spinner } from "./ui/spinner";
+import FriendsSelector from "./friends-selector";
 
 const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: Channel[], currentUserInfo: User, messagesLength: number }> = ({ channel, currentUserChannels, currentUserInfo, messagesLength }) => {
     const mutualServers = getMutualServers(currentUserChannels, channel?.directChannelOtherMember);
-    const dispatch = useAppDispatch();
     const currentActiveRoom = useAppSelector(selectActiveChannelRoom);
     const [removeFriend] = useRemoveFriendMutation();
     const [addFriend] = useSendFriendRequestMutation();
-    const [addGroupChannelMembers, { isLoading: isAddingGroupChannelMembersLoading }] = useAddGroupChannelMembersMutation();
     const [isChannelDialogOpen, setIsChannelDialogOpen] = useState<boolean>(false);
     const [isInviteFriendsDialogOpen, setIsInviteFriendsDialogOpen] = useState<boolean>(false);
-    const id = useId();
-    const [selectedFriends, setSelectedFriends] = useState<FriendInterface[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [activeTagIndex, setActiveTagIndex] = useState<number | null>(null);
-    const filteredFriends = currentUserInfo.friends.filter((friend) => friend.displayName.toLowerCase().includes(searchQuery.toLowerCase()) && !channel.members.some((member) => member._id === friend._id));
+    const [isInviteFriendsToServerDialogOpen, setIsInviteFriendsToServerDialogOpen] = useState<boolean>(false);
+
     const handleOpenDialog = useCallback(() => {
         setIsChannelDialogOpen(true);
-    }, []);
+    }, [setIsChannelDialogOpen]);
+
     const handleOpenInviteFriendsDialog = useCallback(() => {
         setIsInviteFriendsDialogOpen(true);
-    }, []);
-    const friendTags: Tag[] = selectedFriends.map((friend) => ({
-        id: friend._id,
-        text: friend.displayName,
-    }));
-    const handleSelect = (friend: FriendInterface) => {
-        if (selectedFriends.some((selected) => selected._id === friend._id)) {
-            // Remove friend
-            const newSelectedFriends = selectedFriends.filter((f) => f._id !== friend._id);
-            setSelectedFriends(newSelectedFriends);
-        } else if (selectedFriends.length < MAX_FRIENDS) {
-            // Add friend
-            const newSelectedFriends = [...selectedFriends, friend];
-            setSelectedFriends(newSelectedFriends);
-        }
-    };
+    }, [setIsInviteFriendsDialogOpen]);
 
-    const handleTagsChange = (newTags: Tag[]) => {
-        // Convert tags back to friends
-        const newSelectedFriends = newTags
-            .map((tag) => currentUserInfo.friends.find((friend) => friend._id === tag.id))
-            .filter((friend): friend is FriendInterface => friend !== undefined);
-
-        setSelectedFriends(newSelectedFriends);
-    };
-
-    const handleAddGroupChannelMembers = () => {
-        selectedFriends.forEach(async (friend) => {
-            addGroupChannelMembers({ channelId: channel._id, data: { memberToAdd: friend._id, addedBy: currentUserInfo._id } });
-        });
-    };
-
+    const handleOpenInviteFriendsToServerDialog = useCallback(() => {
+        setIsInviteFriendsToServerDialogOpen(true);
+    }, [setIsInviteFriendsToServerDialogOpen]);
 
     const mountChannelStarterMessage = () => {
         switch (channel.type) {
@@ -169,67 +132,16 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                                 onOpenChange={setIsChannelDialogOpen}
                             />
                         )}
-                        <Dialog open={isInviteFriendsDialogOpen} onOpenChange={setIsInviteFriendsDialogOpen}>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Select Friends</DialogTitle>
-                                    <DialogDescription>You can add {MAX_FRIENDS - selectedFriends.length - channel.members.length} more friends.</DialogDescription>
-                                </DialogHeader>
-                                <div className="w-full">
-                                    <div className="mb-4 flex items-center w-full gap-2">
-                                        <TagInput
-                                            id={id}
-                                            tags={friendTags}
-                                            setTags={handleTagsChange}
-                                            placeholder="Type the username of a friend"
-                                            activeTagIndex={activeTagIndex}
-                                            setActiveTagIndex={setActiveTagIndex}
-                                            onInputChange={setSearchQuery}
-                                            inputValue={searchQuery}
-                                        />
-                                        <Button onClick={handleAddGroupChannelMembers} size='lg' className="h-11" disabled={selectedFriends.length === 0 || isAddingGroupChannelMembersLoading}>
-                                            {isAddingGroupChannelMembersLoading ? <Spinner /> : "Add"}
-                                        </Button>
-                                    </div>
-                                    <ScrollArea className="h-48 mb-12">
-                                        <div className="flex flex-col">
-                                            {filteredFriends && filteredFriends.length > 0 ? (
-                                                filteredFriends?.map((friend) => (
-                                                    <div
-                                                        key={friend._id}
-                                                        className="group/friend flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted-foreground/8 transition-all duration-300 ease-in-out"
-                                                        onClick={() => handleSelect(friend)}
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <Avatar style={
-                                                                friend.profilePicture === SHORT_LOGO_URL && friend.profilePictureBannerColor
-                                                                    ? { backgroundColor: friend.profilePictureBannerColor }
-                                                                    : undefined
-                                                            }>
-                                                                <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
-                                                                <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
-                                                                <AvatarBadge className="size-2.5!" variant={friend.status.type} />
-                                                            </Avatar>
-
-                                                            <div className="flex items-start flex-col">
-                                                                <p className="font-semibold text-sm">{friend.displayName}</p>
-                                                                <p className="text-xs text-muted-foreground">{friend.username}</p>
-                                                            </div>
-                                                        </div>
-                                                        <Checkbox className="h-5 w-5" id={friend._id} checked={selectedFriends.some((selected) => selected._id === friend._id)} />
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center p-4 text-muted-foreground">
-                                                    <p className="text-sm font-medium">No friends found</p>
-                                                    <p className="text-xs">Try a different search term</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </ScrollArea>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                        {isInviteFriendsDialogOpen && (
+                            <FriendsSelector
+                                friends={currentUserInfo.friends}
+                                currentUser={currentUserInfo}
+                                channel={channel}
+                                isInvitingFriends={true}
+                                isInviteFriendsDialogOpen={isInviteFriendsDialogOpen}
+                                setIsInviteFriendsDialogOpen={setIsInviteFriendsDialogOpen}
+                            />
+                        )}
                     </div>
                 )
             case ChannelType.Server:
@@ -246,7 +158,9 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                             </Avatar>
                             <p className="max-w-2xl text-center leading-4">This is your brand new shiny server! Feel free to invite your friends and start chatting. Here are some steps to help you get started</p>
                             <div className="flex flex-col items-center gap-2 mt-4 w-full">
-                                <Button className="w-full border h-14 justify-between px-6!" variant="secondary" onClick={() => dispatch(setOpenServerInvitationDialog(true))}>
+                                <Button className="w-full border h-14 justify-between px-6!" variant="secondary"
+                                    onClick={handleOpenInviteFriendsToServerDialog}
+                                >
                                     <div className="flex items-center gap-2">
                                         <IconUsersPlus size={16} fill="var(--foreground)" color='var(--foreground)' /> Invite your Friends
                                     </div>
@@ -268,6 +182,15 @@ const ChannelStarterMessage: React.FC<{ channel: Channel, currentUserChannels: C
                                 </Button>
                             </div>
                         </div>
+                        {isInviteFriendsToServerDialogOpen && (
+                            <FriendsSelector
+                                friends={currentUserInfo.friends}
+                                currentUser={currentUserInfo}
+                                channel={channel}
+                                isInviteFriendsToServerDialogOpen={isInviteFriendsToServerDialogOpen}
+                                setIsInviteFriendsToServerDialogOpen={setIsInviteFriendsToServerDialogOpen}
+                            />
+                        )}
                     </div> : null
                 )
             default:

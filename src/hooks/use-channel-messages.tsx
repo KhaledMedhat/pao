@@ -17,12 +17,9 @@ export function useChannelMessages(channelId: string, referenceMessageRoomId?: s
     const [isError, setIsError] = useState<boolean>(false);
     const { socket, isConnected } = useSocket();
     const [isSomeoneTyping, setIsSomeoneTyping] = useState<{ userId: string; displayName: string; isTyping: boolean }[]>([]);
-    // Use lazy query for manual control
     const [fetchMessages] = useLazyGetChannelMessagesQuery();
 
-    // Track if initial load is done
     const initialLoadDone = useRef(false);
-    // Use ref to access current messages without adding to dependencies
     const messagesRef = useRef<MessageInterface[]>([]);
 
     // Reset state when channel or room changes
@@ -32,6 +29,7 @@ export function useChannelMessages(channelId: string, referenceMessageRoomId?: s
         messagesRef.current = [];
         setHasMore(true);
     }, [channelId, referenceMessageRoomId]);
+
 
     // Keep messagesRef in sync with messages state
     useEffect(() => {
@@ -122,12 +120,6 @@ export function useChannelMessages(channelId: string, referenceMessageRoomId?: s
             }
         };
 
-        // if (channelId) {
-        //     const cleanup = setupTypingListener();
-        //     return () => {
-        //         cleanup.then((cleanupFn) => cleanupFn?.());
-        //     };
-        // }
         // Handle new message - backend sends { message: MessageInterface }
         const handleNewMessage = (data: { message: MessageInterface }) => {
             const newMessage = data.message;

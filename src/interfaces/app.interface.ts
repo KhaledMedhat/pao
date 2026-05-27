@@ -68,10 +68,13 @@ export enum HoveredState {
   DEAFEN = "deafen",
   MIC_MORE = "mic-more",
   DEAFEN_MORE = "deafen-more",
+  VIDEO = "video",
+  VIDEO_MORE = "video-more",
 }
 
 export enum Filter {
   FROM_SPECIFIC_USER = "from",
+  IN_SPECIFIC_CHANNEL = "in",
   HAS_ATTACHMENTS = "has",
   MENTIONS_USER = "mentions",
   MESSAGES_TEXT = "messages",

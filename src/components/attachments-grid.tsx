@@ -470,7 +470,7 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
         <div className="space-y-2">
             {/* Images Grid */}
             {images.length > 0 && (
-                <div className={`grid w-fit gap-2 pb-2 ${getGridClass(images.length)}`}>
+                <div className={`grid w-fit gap-2 pb-2 ${getGridClass(images.length, isAlert ?? false)}`}>
                     {images.map((attachment, idx) => (
                         <Dialog
                             key={idx}
@@ -726,8 +726,8 @@ export function AttachmentsGrid({ attachments, sender, messageSentAt, isAlert, m
     )
 }
 
-function getGridClass(count: number): string {
+function getGridClass(count: number, isAlert: boolean): string {
     if (count === 1) return "grid-cols-1"
-    if (count === 2) return "grid-cols-1 lg:grid-cols-2"
+    if (count === 2 || (count === 3 && isAlert)) return "grid-cols-1 lg:grid-cols-2"
     return "w-fit grid-col-1 lg:grid-cols-3"  // Added w-fit to prevent extra space
 }

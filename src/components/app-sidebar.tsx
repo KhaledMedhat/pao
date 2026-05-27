@@ -3,7 +3,6 @@ import {
   IconBrandSafari,
   IconChevronDown,
   IconChevronUp,
-  IconCopyCheckFilled,
   IconHash,
   IconMailFilled,
   IconPhotoPlus,
@@ -17,11 +16,11 @@ import {
   IconVolume,
   IconX,
   IconChevronRight,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -36,31 +35,31 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createChannelCategorySchema, CreateChannelCategoryValues, createServerSchema, CreateServerValues, invitationServerJoinSchema, InvitationServerJoinValues } from "~/lib/validation";
+import { createServerSchema, CreateServerValues, invitationServerJoinSchema, InvitationServerJoinValues } from "~/lib/validation";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Input } from "./ui/input";
 import useUpload from "~/hooks/use-upload";
 import { ActiveUI, ConfigPrefix, FriendsSelectorView } from "~/interfaces/app.interface";
-import { useCreateChannelMutation, useCreateServerChannelMutation, useLeaveGroupChannelMutation, useSendServerInvitationLinkMutation } from "~/redux/apis/channel.api";
-import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.interface";
+import { useCreateChannelMutation, useJoinServerViaInvitationLinkMutation, useLeaveChannelMutation } from "~/redux/apis/channel.api";
+import { Channel, ChannelType } from "~/interfaces/channels.interface";
 import { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { NestErrorResponse } from "~/interfaces/error.interface";
 import { Spinner } from "./ui/spinner";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "./ui/scroll-area";
-import { Avatar, AvatarBadge, AvatarFallback, AvatarGroupGrid, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarBadge, AvatarFallback, AvatarGroupCount, AvatarGroupGrid, AvatarImage } from "./ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Badge } from "./ui/badge";
 import { useSearchUsersMutation } from "~/redux/apis/user.api";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./ui/empty";
 import FriendsSelector from "./friends-selector";
-import { setActiveChannelRoom, setActiveUI, setCurrentChannelId, setOpenServerInvitationDialog } from "~/redux/slices/app/app-slice";
-import { selectActiveChannelRoom, selectActiveUI, selectCurrentChannel, selectOpenServerInvitationDialog, selectSidebarOpen } from "~/redux/slices/app/app-selector";
+import { setActiveChannelRoom, setActiveUI, setCurrentChannelId } from "~/redux/slices/app/app-slice";
+import { selectActiveChannelRoom, selectActiveUI, selectCurrentChannel, selectSidebarOpen } from "~/redux/slices/app/app-selector";
 import { cn, extractDirectChannelFromMembers, getInitialsFallback } from "~/lib/utils";
-import { setChannelListActive } from "~/redux/slices/user/user-slice";
+import { addChannel, setChannelListActive } from "~/redux/slices/user/user-slice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,12 +74,11 @@ import ChannelSharedContextMenu from "./channel-shared-context-menu";
 import { ImageCropperInline } from "./image-cropper";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Label } from "./ui/label";
-import ReactionPicker from "./reaction-picker";
 import { sileo } from "sileo";
 import { SHORT_LOGO_URL } from "~/constants/constants";
 import { useIsMobile } from "~/hooks/use-mobile";
+import CreateChannelInServerDialog from "./create-channel-in-server-dialog";
+import { useSocket } from "~/hooks/use-socket";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter();
@@ -93,35 +91,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [search, setSearch] = useState<string>("");
-  const [inviteToServerSearch, setInviteToServerSearch] = useState<string>("");
   const [textCollapsibleOpen, setTextCollapsibleOpen] = useState<boolean>(true);
   const [voiceCollapsibleOpen, setVoiceCollapsibleOpen] = useState<boolean>(true);
   const [openServerCreateChannelDialog, setOpenServerCreateChannelDialog] = useState<boolean>(false);
   const [hoveringTextRoom, setHoveringTextRoom] = useState<string | null>(null);
   const [hoveringVoiceRoom, setHoveringVoiceRoom] = useState<string | null>(null);
-  const [leavingGroupChannelId, setLeavingGroupChannelId] = useState<string | null>(null);
+  const [leavingChannelId, setLeavingChannelId] = useState<string | null>(null);
   const [openServerDropdown, setOpenServerDropdown] = useState<boolean>(false);
-  const [inviteLinkCopied, setInviteLinkCopied] = useState<boolean>(false);
-  const [invitingFriendId, setInvitingFriendId] = useState<string | null>(null);
-  const [currentEmoji, setCurrentEmoji] = useState<string>("😊");
-  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  const openServerInvitationDialog = useAppSelector(selectOpenServerInvitationDialog);
-  const [sendServerInvitationLink, { isLoading: isSendingServerInvitationLink }] = useSendServerInvitationLinkMutation();
-  const handleSendServerInvitationLink = async (friendId: string) => {
-    setInvitingFriendId(friendId);
-    try {
-      await sendServerInvitationLink({
-        sendTo: extractDirectChannelFromMembers(currentUserInfo._id, currentChannels, friendId)?._id || "",
-        invitationLink: {
-          link: currentChannel?.serverInvitationLink?.link || "",
-          id: currentChannel?.serverInvitationLink?.id || "",
-        },
-      }).unwrap();
-    } finally {
-      setInvitingFriendId((prev) => (prev === friendId ? null : prev));
-    }
-  };
-
+  const [isInviteFriendsToServerDialogOpen, setIsInviteFriendsToServerDialogOpen] = useState<boolean>(false);
   const activeUI = useAppSelector(selectActiveUI);
   const currentUserInfo = useAppSelector(selectCurrentUserInfo);
   const currentChannels = useAppSelector(selectCurrentUserChannels);
@@ -130,10 +107,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentActiveChannelRoom = useAppSelector(selectActiveChannelRoom);
   const [createChannel, { isLoading: isCreatingChannel }] = useCreateChannelMutation();
   const [searchUsers, { data: usersQuery }] = useSearchUsersMutation();
-  const [leaveGroupChannel, { isLoading: isLeavingGroupChannelLoading }] = useLeaveGroupChannelMutation();
-  const [createServerChannel, { isLoading: isCreatingServerChannel }] = useCreateServerChannelMutation();
+  const [leaveChannel, { isLoading: isLeavingChannelLoading }] = useLeaveChannelMutation();
+  const [joinServerViaInvitationLink, { isLoading: isJoiningServerViaInvitationLinkLoading }] = useJoinServerViaInvitationLinkMutation();
   const { startUpload } = useUpload(ConfigPrefix.SINGLE_IMAGE_UPLOADER, setIsUploadingLoading);
-  const filteredServerInvitationFriends = currentUserInfo.friends.filter((friend) => !currentChannel?.members.some((member) => member._id === friend._id));
+  const socket = useSocket();
+  const handleOpenInviteFriendsToServerDialog = useCallback(() => {
+    setIsInviteFriendsToServerDialogOpen(true);
+  }, []);
+
+
+
   const secondSidebarButtons = [
     {
       icon: <IconUserFilled size={20} />,
@@ -189,30 +172,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       serverImage: undefined,
     },
   });
-  const createChannelCategory = useForm<CreateChannelCategoryValues>({
-    resolver: zodResolver(createChannelCategorySchema),
-    defaultValues: {
-      channelType: ServerChannelType.Text,
-      channelName: "",
-    },
-  });
-  const onInvitationServerJoinSubmit = async (data: InvitationServerJoinValues) => {
-    console.log(data);
-  };
 
-  const onCreateChannelCategorySubmit = (data: CreateChannelCategoryValues) => {
-    createServerChannel({
-      serverId: currentChannel?._id || "",
-      payload: data,
-    }).unwrap().then(() => {
-      setOpenServerCreateChannelDialog(false);
-      createChannelCategory.reset();
-    }).catch(() => {
-      sileo.error({
-        title: "Oops, something went wrong!",
-        description: "An unexpected error occurred",
+  const onInvitationServerJoinSubmit = (data: InvitationServerJoinValues) => {
+    joinServerViaInvitationLink({ invitationLink: data.invitationLink })
+      .unwrap()
+      .then((data) => {
+        dispatch(addChannel(data));
+        dispatch(setActiveChannelRoom({ _id: data.channelMessageRooms?.find((room) => room.type === "Primary")?._id || "", name: data.channelMessageRooms?.find((room) => room.type === "Primary")?.name || "", type: "Primary" }));
+        dispatch(setCurrentChannelId(data._id ?? ""));
+        dispatch(setActiveUI(ActiveUI.SERVER));
+        sileo.success({
+          title: "Joined server successfully",
+        });
+        router.push(`/server/${data._id}`);
+      })
+      .catch((error) => {
+        if (error.data.statusCode === 409) {
+          const foundedServerChannel = currentChannels.find((channel) => channel.serverInvitationLink?.link === data.invitationLink);
+          if (foundedServerChannel) {
+            sileo.action({
+              title: error.data.message,
+              icon: <IconAlertCircle size={20} color="orange" />,
+              button: {
+                title: "Go to Server",
+                onClick: () => {
+                  const primaryRoom = foundedServerChannel.channelMessageRooms?.find((room) => room.type === "Primary");
+                  dispatch(setCurrentChannelId(foundedServerChannel._id ?? ""));
+                  dispatch(setActiveUI(ActiveUI.SERVER));
+                  dispatch(setActiveChannelRoom({ _id: primaryRoom?._id || "", name: primaryRoom?.name || "", type: "Primary" }));
+                  router.push(`/server/${foundedServerChannel._id}`);
+                }
+              }
+            })
+          }
+        } else {
+          sileo.error({
+            title: "Oops, something went wrong!",
+            description: error.data.message || "An unexpected error occurred",
+          });
+        }
       });
-    });
   };
 
   const onCreateServerSubmit = (data: CreateServerValues) => {
@@ -239,7 +238,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       } else {
         createChannel({
           members: [currentUserInfo._id],
-          groupOrServerLogo: undefined,
+          groupOrServerLogo: SHORT_LOGO_URL,
           groupOrServerName: data.serverName,
           type: ChannelType.Server,
         })
@@ -325,33 +324,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {currentChannels
                 .filter((channel) => channel?.type === ChannelType.Server)
                 .map((channel) => (
-                  <SidebarMenuItem key={channel._id} className="px-2">
-                    <SidebarMenuButton
-                      size="lg"
-                      onClick={() => {
-                        dispatch(setActiveUI(ActiveUI.SERVER))
-                        dispatch(setCurrentChannelId(channel._id));
-                        dispatch(setActiveChannelRoom({ _id: channel.channelMessageRooms?.find((room) => room.type === "Primary")?._id || "", name: channel.channelMessageRooms?.find((room) => room.type === "Primary")?.name || "", type: "Primary" }));
-                        router.push(`/server/${channel._id}`);
-                      }}
-                      tooltip={{
-                        children: channel.groupOrServerName,
-                        hidden: false,
-                      }}
-                      className="relative! h-11 w-full"
-                    >
-                      <Image
-                        src={channel.groupOrServerLogo || ""}
-                        alt={channel.groupOrServerName || ""}
-                        sizes="200px"
-                        fill
-                        className="object-cover rounded-sm"
-                      />
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <ChannelSharedContextMenu key={channel._id} channel={channel}>
+                    <SidebarMenuItem className="px-2">
+                      <SidebarMenuButton
+                        size="lg"
+                        onClick={() => {
+                          dispatch(setActiveUI(ActiveUI.SERVER))
+                          dispatch(setCurrentChannelId(channel._id));
+                          dispatch(setActiveChannelRoom({ _id: channel.channelMessageRooms?.find((room) => room.type === "Primary")?._id || "", name: channel.channelMessageRooms?.find((room) => room.type === "Primary")?.name || "", type: "Primary" }));
+                          router.push(`/server/${channel._id}`);
+                        }}
+                        tooltip={{
+                          children: channel.groupOrServerName,
+                          hidden: false,
+                        }}
+                        className="relative! h-11 w-full p-0"
+                      >
+                        <Avatar className="w-full h-full rounded-md">
+                          <AvatarImage src={channel.groupOrServerLogo} />
+                          <AvatarFallback>{getInitialsFallback(channel.groupOrServerName || "")}</AvatarFallback>
+                          {(channel.notificationsCount ?? 0) > 0 && (
+                            <AvatarGroupCount className="size-4 text-[8px] absolute right-0 bottom-0 bg-destructive text-foreground ring-0">
+                              {channel.notificationsCount}
+                            </AvatarGroupCount>
+                          )}
+                        </Avatar>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </ChannelSharedContextMenu>
                 ))}
             </div>
-            <div className="space-y-4 mt-4">
+            <div className={`space-y-4 ${currentChannels.filter((channel) => channel?.type === ChannelType.Server).length > 0 ? "mt-4" : ""}`}>
               <Dialog open={openAddServerDialog} onOpenChange={setOpenAddServerDialog}>
                 <DialogTrigger asChild>
                   <SidebarMenuItem className="px-2">
@@ -562,7 +565,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <Button onClick={() => setStep(2)} variant="ghost">
                         Back
                       </Button>
-                      <Button form="invitation-server-join-form">Join Server</Button>
+                      <Button form="invitation-server-join-form" disabled={isJoiningServerViaInvitationLinkLoading}>
+                        {isJoiningServerViaInvitationLinkLoading ? <>
+                          <Spinner />
+                          Joining Server...
+                        </> : "Join Server"}
+                      </Button>
                     </div>
                     <div
                       className="transition-all duration-500 ease-in-out"
@@ -656,7 +664,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                 <SidebarMenuItem>
                   <SidebarMenuButton tooltip={{ children: "Invite to Server", hidden: false, side: "bottom" }} asChild >
-                    <Button variant="ghost" onClick={() => dispatch(setOpenServerInvitationDialog(true))}>
+                    <Button variant="ghost" onClick={handleOpenInviteFriendsToServerDialog}>
                       <IconUsersPlus size={16} fill="var(--foreground)" color='var(--foreground)' />
                     </Button>
                   </SidebarMenuButton>
@@ -835,7 +843,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           >
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon-sm" onClick={() => dispatch(setOpenServerInvitationDialog(true))}>
+                                <Button variant="ghost" size="icon-sm" onClick={handleOpenInviteFriendsToServerDialog}>
                                   <IconUserPlus size={16} className="text-muted-foreground" />
                                 </Button>
                               </TooltipTrigger>
@@ -872,7 +880,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             >
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => dispatch(setOpenServerInvitationDialog(true))}>
+                                  <Button variant="ghost" size="icon-sm" onClick={handleOpenInviteFriendsToServerDialog}>
                                     <IconUserPlus size={16} className="text-muted-foreground" />
                                   </Button>
                                 </TooltipTrigger>
@@ -929,7 +937,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             >
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => dispatch(setOpenServerInvitationDialog(true))}>
+                                  <Button variant="ghost" size="icon-sm" onClick={handleOpenInviteFriendsToServerDialog}>
                                     <IconUserPlus size={16} className="text-muted-foreground" />
                                   </Button>
                                 </TooltipTrigger>
@@ -982,6 +990,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                   variant="ghost"
                                   className={`flex items-center w-full justify-between gap-2  ${channel.type === ChannelType.Group ? "mt-1 h-12" : "h-11"}`}
                                   onClick={() => {
+                                    socket?.emit("adjustNotificationCount", { channelId: channel._id });
                                     dispatch(setCurrentChannelId(channel._id));
                                     channel.type === ChannelType.Direct
                                       ? dispatch(setActiveUI(ActiveUI.DIRECT_MESSAGES))
@@ -1044,19 +1053,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                       )}
                                     </div>
                                   </div>
-                                  <div
-                                    className="cursor-pointer hidden group-hover/channel:block bg-muted-foreground/10 rounded-full p-1 hover:bg-main"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      if (channel.type === ChannelType.Direct) {
-                                        dispatch(setChannelListActive({ channelId: channel._id, listActive: false }));
-                                      } else {
-                                        setLeavingGroupChannelId(channel._id);
-                                      }
-                                    }}
-                                  >
-                                    <IconX size={14} className="text-muted-foreground" />
+                                  <div className="flex items-center gap-2">
+                                    {(channel.notificationsCount ?? 0) > 0 && (
+                                      <Badge variant="destructive" className="text-[8px] px-1.5">
+                                        {channel.notificationsCount}
+                                      </Badge>
+                                    )}
+                                    <div
+                                      className="cursor-pointer hidden group-hover/channel:block bg-muted-foreground/10 rounded-full p-1 hover:bg-main"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (channel.type === ChannelType.Direct) {
+                                          dispatch(setChannelListActive({ channelId: channel._id, listActive: false }));
+                                        } else {
+                                          setLeavingChannelId(channel._id);
+                                        }
+                                      }}
+                                    >
+                                      <IconX size={14} className="text-muted-foreground" />
+                                    </div>
                                   </div>
                                 </Button>
                               </Link>
@@ -1067,15 +1083,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </ScrollArea>
 
                 {/* Alert dialog for leaving group channel - rendered once outside the loop */}
-                <AlertDialog open={!!leavingGroupChannelId} onOpenChange={(open) => !open && setLeavingGroupChannelId(null)}>
+                <AlertDialog open={!!leavingChannelId} onOpenChange={(open) => !open && setLeavingChannelId(null)}>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
-                        Leave {currentChannels.find((c) => c._id === leavingGroupChannelId)?.groupOrServerName || ""} Group?
+                        Leave {currentChannels.find((c) => c._id === leavingChannelId)?.groupOrServerName || ""} Group?
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to leave{" "}
-                        <span className="font-semibold">{currentChannels.find((c) => c._id === leavingGroupChannelId)?.groupOrServerName || ""}</span>{" "}
+                        <span className="font-semibold">{currentChannels.find((c) => c._id === leavingChannelId)?.groupOrServerName || ""}</span>{" "}
                         group? You won't be able to rejoin this group unless you are re-invited.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1084,13 +1100,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <AlertDialogAction
                         className="bg-destructive text-white hover:bg-destructive/90"
                         onClick={async () => {
-                          if (leavingGroupChannelId) {
-                            await leaveGroupChannel(leavingGroupChannelId);
-                            setLeavingGroupChannelId(null);
+                          if (leavingChannelId) {
+                            await leaveChannel(leavingChannelId);
+                            setLeavingChannelId(null);
                           }
                         }}
                       >
-                        {isLeavingGroupChannelLoading ? (
+                        {isLeavingChannelLoading ? (
                           <>
                             <Spinner />
                             Leaving Group...
@@ -1107,184 +1123,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
       </Sidebar>
       <UserNavigator />
+      {isInviteFriendsToServerDialogOpen &&
+        <FriendsSelector friends={currentUserInfo.friends} currentUser={currentUserInfo} channel={currentChannel || undefined} isInviteFriendsToServerDialogOpen={isInviteFriendsToServerDialogOpen} setIsInviteFriendsToServerDialogOpen={setIsInviteFriendsToServerDialogOpen} />}
 
-      <Dialog open={openServerInvitationDialog} onOpenChange={(open) => dispatch(setOpenServerInvitationDialog(open))}>
-        <DialogContent showCloseButton={true}>
-          <DialogHeader className="space-y-2">
-            <DialogTitle>Invite friends to {currentChannel?.groupOrServerName}</DialogTitle>
-            <DialogDescription className="flex gap-1 items-center text-md">
-              Recipients will land in <IconHash size={20} /> {currentChannel?.channelMessageRooms?.find((room) => room.type === "Primary")?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="w-full flex flex-col items-center gap-4">
-            <div className="relative w-full">
-              <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search for friends"
-                className="pl-10 h-11"
-                value={inviteToServerSearch}
-                onChange={(e) => setInviteToServerSearch(e.target.value)}
-              />
-              {inviteToServerSearch.length > 0 && (
-                <Button variant="secondary" className="absolute size-6 right-3 top-1/2 -translate-y-1/2 text-muted-foreground rounded-full" onClick={() => setInviteToServerSearch("")}>
-                  <IconX size={16} />
-                </Button>
-              )}
-            </div>
-            <ScrollArea className="h-100 w-full">
-              {filteredServerInvitationFriends.length > 0 ? filteredServerInvitationFriends.map((friend) => (
-                <div key={friend._id} className="flex items-center justify-between w-full hover:bg-main rounded-md p-2">
-                  <div className="w-full flex items-center gap-2">
-                    <Avatar className="size-9" style={
-                      friend.profilePicture === SHORT_LOGO_URL && friend.profilePictureBannerColor
-                        ? { backgroundColor: friend.profilePictureBannerColor }
-                        : undefined
-                    }>
-                      <AvatarImage src={friend.profilePicture} alt={friend.displayName} />
-                      <AvatarFallback>{getInitialsFallback(friend.displayName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start">
-                      <span className="font-semibold">{friend.displayName}</span>
-                      <span className="text-xs text-muted-foreground">{friend.username}</span>
-                    </div>
-                  </div>
-                  <Button
-                    disabled={invitingFriendId === friend._id}
-                    variant="secondary"
-                    onClick={() => handleSendServerInvitationLink(friend._id)}
-                  >
-                    {invitingFriendId === friend._id && isSendingServerInvitationLink ? <Spinner /> : "Send Link"}
-                  </Button>
-                </div>
-              )) : (
-                <div className="flex flex-col items-center justify-center p-4 text-muted-foreground">
-                  <p className="text-sm font-medium">No friends found</p>
-                  <p className="text-xs">Try a different search term</p>
-                </div>
-              )}
-            </ScrollArea>
-          </div>
-          <DialogFooter className="border-t border-main flex-col! pt-4">
-            <p className="font-semibold">Or, send a server invite link to a friend</p>
-            <div className="relative w-full">
-              <Input
-                type="text"
-                value={currentChannel?.serverInvitationLink?.link || ""}
-                className={cn(
-                  "h-11 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-input transition-colors duration-300",
-                  inviteLinkCopied && "border-[#43a25a] bg-success/10"
-                )}
-                readOnly
-              />
-              <Button
-                onClick={() => {
-                  navigator.clipboard.writeText(currentChannel?.serverInvitationLink?.link || "");
-                  setInviteLinkCopied(true);
-                  setTimeout(() => setInviteLinkCopied(false), 1500);
-                }}
-                variant="default"
-                className={cn(
-                  "absolute right-1 top-1/2 -translate-y-1/2 transition-colors duration-300",
-                  inviteLinkCopied && "bg-success"
-                )}
-              >
-                {inviteLinkCopied ? "Copied" : "Copy"}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openServerCreateChannelDialog} onOpenChange={(open) => {
-        setOpenServerCreateChannelDialog(open)
-        createChannelCategory.reset()
-      }}>
-        <DialogContent showCloseButton={true}>
-          <DialogHeader className="space-y-1">
-            <DialogTitle>Create Channel</DialogTitle>
-            <DialogDescription className="flex gap-1 items-center text-md">
-              In {currentChannel?.groupOrServerName} Channels.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...createChannelCategory}>
-            <form id="create-channel-category-form" onSubmit={createChannelCategory.handleSubmit(onCreateChannelCategorySubmit)} className="space-y-4">
-              <FormField
-                control={createChannelCategory.control}
-                name="channelType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-md">Channel Type</FormLabel>
-                    <FormControl className="mt-2">
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        name={field.name}
-                      >
-                        <div className="flex flex-col items-start">
-                          <div className="flex items-center gap-3">
-                            <RadioGroupItem value={ServerChannelType.Text} id="r1" />
-                            <Label htmlFor="r1" className="text-md font-normal gap-1"><IconHash size={20} /> Text</Label>
-                          </div>
-                          <p className="pl-10 text-sm text-muted-foreground">Send Messages, images, GIFs, emoji, opinions, and puns</p>
-                        </div>
-
-                        <div className="flex flex-col items-start">
-                          <div className="flex items-center gap-3">
-                            <RadioGroupItem value={ServerChannelType.Voice} id="r2" />
-                            <Label htmlFor="r2" className="text-md font-normal gap-1"><IconVolume size={20} /> Voice</Label>
-                          </div>
-                          <p className="pl-10 text-sm text-muted-foreground">Hang out together with voice, video, and screen share</p>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={createChannelCategory.control}
-                name="channelName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-md">Channel Name</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        {createChannelCategory.watch("channelType") === "Text" && <IconHash size={16} className="absolute left-3 top-1/2 -translate-y-1/2" />}
-                        {createChannelCategory.watch("channelType") === "Voice" && <IconVolume size={16} className="absolute left-3 top-1/2 -translate-y-1/2" />}
-                        <Input {...field} className="pl-10 h-11" placeholder="new-channel" autoComplete="off" />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 ">
-                          <ReactionPicker
-                            isMessageInput={false}
-                            isShortcut={false}
-                            currentEmoji={currentEmoji}
-                            setCurrentEmoji={setCurrentEmoji}
-                            addEmojiToMessage={(emoji) => {
-                              setSelectedEmoji(emoji);
-                              field.onChange(`${field.value} ${emoji}`);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-          <DialogFooter className="justify-between!">
-            <Button variant="secondary" size='xl' className="flex-1" onClick={() => {
-              setOpenServerCreateChannelDialog(false)
-              createChannelCategory.reset()
-            }}>
-              Cancel
-            </Button>
-            <Button disabled={isCreatingServerChannel || createChannelCategory.watch("channelName") === ""} type="submit" form="create-channel-category-form" size='xl' className="flex-1">
-              {isCreatingServerChannel ? <><Spinner /> Creating Channel...</> : "Create Channel"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {openServerCreateChannelDialog && <CreateChannelInServerDialog currentChannel={currentChannel} open={openServerCreateChannelDialog} onOpenChange={setOpenServerCreateChannelDialog} />}
     </Wrapper>
   );
 }

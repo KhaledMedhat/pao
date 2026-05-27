@@ -38,6 +38,8 @@ import { useAssignGroupNewOwnershipMutation, useCreateChannelMutation, useRemove
 import { ActiveUI } from "~/interfaces/app.interface";
 import { setActiveUI, setCurrentChannelId, setPendingMention } from "~/redux/slices/app/app-slice";
 import { useRouter } from "next/navigation";
+import ActiveCallScreen from "./active-call-screen";
+import { useCall } from "~/hooks/use-call";
 
 const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   const currentChannel = useAppSelector(selectCurrentChannel);
@@ -233,7 +235,33 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
   // Use ref to track scroll button state without causing re-renders during scroll
   const showScrollButtonRef = useRef(false);
   const scrollThrottleRef = useRef(false);
-
+  const {
+    incomingCall,
+    isInCall,
+    activeCallId,
+    callType,
+    localStream,
+    callConsumers,
+    currentActiveCalls,
+    isMuted,
+    isDeafened,
+    isVideoEnabled,
+    isSpeaking,
+    isScreenSharing,
+    screenShareInfo,
+    isWatchingScreen,
+    screenStream,
+    toggleMute,
+    toggleDeafen,
+    toggleVideo,
+    toggleScreenShare,
+    watchScreen,
+    stopWatchingScreen,
+    hangUp,
+  } = useCall();
+  const activeCallMembers = activeCallId
+    ? currentActiveCalls[activeCallId]?.members ?? []
+    : [];
   // Scroll to message hook (handles loading older messages if needed)
   const { scrollToMessage } = useScrollToMessage({
     messages,
@@ -268,7 +296,7 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                               }>
                                 <AvatarImage src={member.profilePicture} />
                                 <AvatarFallback>{getInitialsFallback(member.displayName)}</AvatarFallback>
-                                <AvatarBadge className="size-2!" variant={member.status.type} />
+                                <AvatarBadge className="size-2!" variant={member.status?.type} />
                               </Avatar>
                               {member.displayName}
                               {currentChannel.createdBy === member._id &&
@@ -545,6 +573,29 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
         </aside>
       }
       <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        {isInCall && callType && (
+          <ActiveCallScreen
+            callType={callType}
+            members={activeCallMembers}
+            localStream={localStream}
+            callConsumers={callConsumers}
+            isMuted={isMuted}
+            isDeafened={isDeafened}
+            isVideoEnabled={isVideoEnabled}
+            isSpeaking={isSpeaking}
+            isScreenSharing={isScreenSharing}
+            screenShareInfo={screenShareInfo}
+            isWatchingScreen={isWatchingScreen}
+            screenStream={screenStream}
+            onToggleMute={toggleMute}
+            onToggleDeafen={toggleDeafen}
+            onToggleVideo={toggleVideo}
+            onToggleScreenShare={toggleScreenShare}
+            onWatchScreen={watchScreen}
+            onStopWatchingScreen={stopWatchingScreen}
+            onHangUp={hangUp}
+          />
+        )}
         {/* Messages area - scrollable */}
         <ScrollArea className="h-[calc(100vh-120px)] w-full min-w-0" onScroll={handleScroll} viewportRef={scrollViewportRef}>
           {isLoading ? (
@@ -591,6 +642,7 @@ const ChannelView: React.FC<{ channelId: string }> = ({ channelId }) => {
                         onLeave={handleMessageLeave}
                         channel={currentChannel || undefined}
                         onScrollToMessage={scrollToMessage}
+                        contextMenuTriggerDisabled={false}
                       />
                     )}
                   </div>

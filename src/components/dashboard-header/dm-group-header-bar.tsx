@@ -28,6 +28,8 @@ import SearchInput from "./search-input";
 import ChannelEditDialog from "./channel-edit-dialog";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
 import FriendsSelector from "../friends-selector";
+import { useCall } from "~/hooks/use-call";
+import { CallType } from "~/interfaces/call.interface";
 
 interface DMGroupHeaderBarProps {
   channel: Channel | null;
@@ -45,7 +47,7 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
   const [isChannelDialogOpen, setIsChannelDialogOpen] = useState(false);
   const [unpinMessage] = useUnpinMessageMutation();
   const { scrollContainerRef } = useScrollContext();
-
+  const { startCall } = useCall();
   const { messages, isLoadingMore, hasMore, loadMoreMessages } = useChannelMessages(
     channel?._id || ""
   );
@@ -66,6 +68,11 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
   const handleOpenDialog = useCallback(() => {
     setIsChannelDialogOpen(true);
   }, []);
+
+  const handleStartCall = useCallback(() => {
+    if (!channel) return;
+    startCall(channel, CallType.Voice, channel.members.filter((m) => m._id !== currentUserInfo._id));
+  }, [channel, currentUserInfo, startCall]);
 
   const handleUnpin = useCallback(
     (args: { channelId: string; messageId: string }) => unpinMessage(args),
@@ -191,7 +198,7 @@ const DMGroupHeaderBar = memo(function DMGroupHeaderBar({
         {/* Voice Call */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className="rounded-full">
+            <Button onClick={handleStartCall} size="icon" variant="ghost" className="rounded-full">
               <IconPhoneCall size={20} />
             </Button>
           </TooltipTrigger>

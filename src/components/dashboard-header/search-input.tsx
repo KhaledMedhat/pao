@@ -1,11 +1,12 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowsSort, IconAt, IconFile, IconFileFilled, IconLink, IconPaperclip, IconPhotoFilled, IconRecordMail, IconSearch, IconSend, IconUserFilled, IconVideoFilled, IconX } from "@tabler/icons-react";
+import { IconArrowsSort, IconAt, IconFileFilled, IconHash, IconLink, IconPaperclip, IconPhotoFilled, IconRecordMail, IconSearch, IconUserFilled, IconVideoFilled, IconX } from "@tabler/icons-react";
 import { Input } from "~/components/ui/input";
-import { ChannelType, type Channel } from "~/interfaces/channels.interface";
+import { ChannelMessageRoom, ChannelType, type Channel } from "~/interfaces/channels.interface";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 import { Filter, HasFilter } from "~/interfaces/app.interface";
 import { Badge } from "../ui/badge";
+import { RoundedCheckbox } from "../ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { formatDate, getInitialsFallback, isValidUrl } from "~/lib/utils";
 import { FriendInterface } from "~/interfaces/user.interface";
@@ -16,6 +17,10 @@ import { Card, CardContent } from "../ui/card";
 import { SHORT_LOGO_URL } from "~/constants/constants";
 import { AttachmentsGrid } from "../attachments-grid";
 import Link from "next/link";
+import UserDetails from "../user-details";
+import { Field, FieldGroup } from "../ui/field";
+import { Label } from "../ui/label";
+import Message from "../message";
 
 interface SearchInputProps {
   channel: Channel | null;
@@ -24,11 +29,13 @@ interface SearchInputProps {
 }
 
 const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMessage }: SearchInputProps) {
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [open, setOpen] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
   const [filter, setFilter] = useState<Filter | null>(null);
   const [fromFilter, setFromFilter] = useState<FriendInterface | null>(null);
   const [hasFilter, setHasFilter] = useState<HasFilter | null>(null);
+  const [inFilter, setInFilter] = useState<ChannelMessageRoom | null>(null);
   const [mentionsFilter, setMentionsFilter] = useState<FriendInterface | null>(null);
   const [badgeWidth, setBadgeWidth] = useState<number>(0);
   const badgeContainerRef = useRef<HTMLSpanElement>(null);
@@ -106,41 +113,104 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
       value: HasFilter.LINK,
     },
   ]
+  const sortMessagesByDate = (messageList: MessageInterface[]) =>
+    [...messageList].sort((a, b) => {
+      const firstDate = new Date(a.createdAt ?? 0).getTime();
+      const secondDate = new Date(b.createdAt ?? 0).getTime();
+      return sortOrder === "newest" ? secondDate - firstDate : firstDate - secondDate;
+    });
+
+  const SortOptions = () => (
+    <FieldGroup className="gap-4">
+      <Field onClick={() => setSortOrder("newest")} orientation="horizontal" className="justify-between">
+        <Label htmlFor="newest-checkbox">Newest</Label>
+        <RoundedCheckbox id="newest-checkbox" name="newest-checkbox" checked={sortOrder === "newest"} onCheckedChange={(checked) => checked && setSortOrder("newest")} />
+      </Field>
+      <Field onClick={() => setSortOrder("oldest")} orientation="horizontal" className="justify-between">
+        <Label htmlFor="oldest-checkbox">Oldest</Label>
+        <RoundedCheckbox id="oldest-checkbox" name="oldest-checkbox" checked={sortOrder === "oldest"} onCheckedChange={(checked) => checked && setSortOrder("oldest")} />
+      </Field>
+    </FieldGroup>
+  );
+
+  const getMessageContentNodes = (message: MessageInterface) => message.message.content?.[0]?.content ?? [];
+
+  const getMessageSearchText = (message: MessageInterface) =>
+    getMessageContentNodes(message)
+      .map((content) => {
+        if (content.type === "mention") {
+          return content.attrs?.label ?? "";
+        }
+        return content.text ?? "";
+      })
+      .join(" ")
+      .toLowerCase();
+
   const mountFilterContent = (() => {
     const normalizedInput = inputValue.trim().toLowerCase();
+    const matchesNormalizedInput = (value: string) => value.toLowerCase().includes(normalizedInput);
+    const messageMatchesTyping = (message: MessageInterface) =>
+      normalizedInput.length === 0 || getMessageSearchText(message).includes(normalizedInput);
+
     const filteredFromMessages = messages.filter((message) => message.sentBy?._id === fromFilter?._id && message.type === MessageType.TEXT);
-    const filteredMessageByTyping = messages.filter((message) => {
-      const messageText = message?.message?.content?.[0]?.content?.[0]?.text;
-      return message.type === MessageType.TEXT && typeof messageText === "string" && messageText.toLowerCase().includes(normalizedInput);
-    });
-    const filteredMessages = inputValue.length > 0 && fromFilter ? filteredMessageByTyping : filteredFromMessages;
-    const filteredUsers =
+    const filteredMessages =
+      normalizedInput.length > 0 && fromFilter
+        ? filteredFromMessages.filter(messageMatchesTyping)
+        : filteredFromMessages;
+    const filteredFromUsers =
       normalizedInput.length > 0 && !fromFilter && filter === Filter.FROM_SPECIFIC_USER
         ? channel?.members.filter((member) => {
           const displayName = member.displayName?.toLowerCase() ?? "";
           const username = member.username?.toLowerCase() ?? "";
-          return displayName.includes(normalizedInput) || username.includes(normalizedInput);
+          return matchesNormalizedInput(displayName) || matchesNormalizedInput(username);
         })
         : channel?.members;
+    const filteredMentionUsers =
+      normalizedInput.length > 0 && !mentionsFilter && filter === Filter.MENTIONS_USER
+        ? channel?.members.filter((member) => {
+          const displayName = member.displayName?.toLowerCase() ?? "";
+          const username = member.username?.toLowerCase() ?? "";
+          return matchesNormalizedInput(displayName) || matchesNormalizedInput(username);
+        })
+        : channel?.members;
+    const filteredInChannels =
+      normalizedInput.length > 0 && !inFilter && filter === Filter.IN_SPECIFIC_CHANNEL
+        ? channel?.channelMessageRooms?.filter((room) => matchesNormalizedInput(room.name.toLowerCase()))
+        : channel?.channelMessageRooms;
     const filteredHasButtons = normalizedInput.length > 0 && !hasFilter && filter === Filter.HAS_ATTACHMENTS ? hasFilterButtons.filter((filter) => filter.value.includes(normalizedInput)) : hasFilterButtons;
-    const filteredHasMessageWithAttachments = normalizedInput.length > 0 && hasFilter && filter === Filter.HAS_ATTACHMENTS ? filteredMessageByTyping.filter((message) => message.attachment?.some((attachment) => attachment.type.toLowerCase().includes(hasFilter?.toLowerCase() ?? ""))) : messages.filter((message) => message.attachment?.some((attachment) => attachment.type.toLowerCase().includes(hasFilter?.toLowerCase() ?? "")));
+    const hasFilteredMessagesSource =
+      hasFilter !== HasFilter.LINK
+        ? messages.filter((message) => message.attachment?.some((attachment) => attachment.type.toLowerCase().includes(hasFilter?.toLowerCase() ?? "")))
+        : messages.filter((message) => isValidUrl(message.message.content?.[0]?.content?.[0]?.text));
     const filteredHasMessages =
-      normalizedInput.length > 0 && hasFilter && filter === Filter.HAS_ATTACHMENTS ? filteredHasMessageWithAttachments :
-        hasFilter !== HasFilter.LINK
-          ? messages.filter((message) => message.attachment?.some((attachment) => attachment.type.toLowerCase().includes(hasFilter?.toLowerCase() ?? "")))
-          : messages.filter((message) => isValidUrl(message.message.content?.[0]?.content?.[0]?.text));
+      normalizedInput.length > 0 && hasFilter && filter === Filter.HAS_ATTACHMENTS
+        ? hasFilteredMessagesSource.filter(messageMatchesTyping)
+        : hasFilteredMessagesSource;
     const normalizedSelectedMention = (mentionsFilter?.displayName || mentionsFilter?.username || "").trim().toLowerCase();
-    const filteredMentionsSource = normalizedInput.length > 0 && mentionsFilter && filter === Filter.MENTIONS_USER ? filteredMessageByTyping : messages;
-    const filteredMentionsMessages = filteredMentionsSource.filter((message) =>
-      message.message.content?.[0]?.content?.some((content) => {
+    const filteredMentionsMessages = messages.filter((message) => {
+      const matchesMention = getMessageContentNodes(message).some((content) => {
         if (content.type !== "mention") return false;
         const mentionLabel = content.attrs?.label?.toLowerCase() ?? "";
         if (mentionsFilter && filter === Filter.MENTIONS_USER) {
           return mentionLabel === normalizedSelectedMention || mentionLabel.includes(normalizedSelectedMention);
         }
         return mentionLabel.includes(normalizedInput);
-      }),
-    );
+      });
+      if (!matchesMention) return false;
+      if (mentionsFilter && filter === Filter.MENTIONS_USER && normalizedInput.length > 0) {
+        return messageMatchesTyping(message);
+      }
+      return true;
+    });
+    const filteredInMessagesSource = messages.filter((message) => message.referenceMessageRoomId === inFilter?._id);
+    const filteredInMessages =
+      normalizedInput.length > 0 && inFilter && filter === Filter.IN_SPECIFIC_CHANNEL
+        ? filteredInMessagesSource.filter(messageMatchesTyping)
+        : filteredInMessagesSource;
+    const sortedFromMessages = sortMessagesByDate(filteredMessages);
+    const sortedInMessages = sortMessagesByDate(filteredInMessages);
+    const sortedHasMessages = sortMessagesByDate(filteredHasMessages);
+    const sortedMentionsMessages = sortMessagesByDate(filteredMentionsMessages);
     switch (filter) {
       case Filter.FROM_SPECIFIC_USER:
         return (
@@ -148,7 +218,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
             {fromFilter ?
               <>
                 <div className="flex items-center justify-between px-2">
-                  <p>{filteredFromMessages.length} Results</p>
+                  <p>{sortedFromMessages.length} Results</p>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button size="sm" variant="secondary">
@@ -156,16 +226,16 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                         Sort
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent>
-
+                    <PopoverContent align="end" className="max-w-38">
+                      <SortOptions />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <Separator />
                 <ScrollArea className="h-60">
                   <div className="space-y-2">
-                    {filteredMessages.map((message) => (
-                      <Card key={message._id} className="relative group">
+                    {sortedFromMessages.map((message) => (
+                      <Card key={message._id} className="relative group py-0 pb-4 px-2">
                         <div className="hidden group-hover:flex items-center absolute top-2 right-2">
                           <Button
                             variant="outline"
@@ -176,29 +246,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                           </Button>
                         </div>
                         <CardContent>
-                          <div className="flex items-start gap-2">
-                            <Avatar className="size-10" style={
-                              message.sentBy?.profilePicture === SHORT_LOGO_URL && message.sentBy?.profilePictureBannerColor
-                                ? { backgroundColor: message.sentBy.profilePictureBannerColor }
-                                : undefined
-                            }>
-                              <AvatarImage src={message.sentBy?.profilePicture} />
-                              <AvatarFallback>
-                                {getInitialsFallback(message.sentBy?.displayName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col items-start">
-                              <div className="flex items-center gap-1">
-                                <p className="text-sm font-medium">{message.sentBy?.displayName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDate(message.createdAt?.toString(), "md")}
-                                </p>
-                              </div>
-                              <p className="text-sm break-all">
-                                {message.message.content?.[0]?.content?.[0]?.text}
-                              </p>
-                            </div>
-                          </div>
+                          <Message className="p-0!" message={message} showHeader={true} isHovered={false} isHighlighted={false} channel={channel || undefined} onScrollToMessage={onScrollToMessage} contextMenuTriggerDisabled={true} messageCreatedAtFromatLength="sm" />
                         </CardContent>
                       </Card>
                     ))}
@@ -209,7 +257,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
               <>
                 <p className="text-xs text-muted-foreground px-4 font-semibold">From User</p>
                 <div className="flex flex-col">
-                  {filteredUsers?.map((member) => (
+                  {filteredFromUsers?.map((member) => (
                     <Button onClick={() => {
                       setFromFilter(member)
                       inputRef.current?.focus();
@@ -223,10 +271,69 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                       <span className="text-xs text-muted-foreground">{member.username}</span>
                     </Button>
                   ))}
+                  {!filteredFromUsers?.length && <p className="px-4 py-2 text-sm text-muted-foreground">No users found.</p>}
                 </div>
               </>
             }
 
+          </div>
+        );
+      case Filter.IN_SPECIFIC_CHANNEL:
+        return (
+          <div className="flex flex-col self-start gap-2 w-full px-2">
+            {inFilter ?
+              <>
+                <div className="flex items-center justify-between px-2">
+                  <p>{sortedInMessages.length} Results</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="secondary">
+                        <IconArrowsSort size={16} />
+                        Sort
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="max-w-38">
+                      <SortOptions />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Separator />
+                <div className="flex flex-col">
+                  {sortedInMessages?.map((message) => (
+                    <Card key={message._id} className="relative group py-0 pb-4 px-2">
+                      <div className="hidden group-hover:flex items-center absolute top-2 right-2">
+                        <Button
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => onScrollToMessage(message._id)}
+                        >
+                          Jump
+                        </Button>
+                      </div>
+                      <CardContent className="w-full">
+                        <Message className="p-0!" message={message} showHeader={true} isHovered={false} isHighlighted={false} channel={channel || undefined} onScrollToMessage={onScrollToMessage} contextMenuTriggerDisabled={true} messageCreatedAtFromatLength="sm" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+              :
+              <>
+                <p className="text-xs text-muted-foreground px-4 font-semibold">In Channel</p>
+                <div className="flex flex-col">
+                  {filteredInChannels?.map((channel) => (
+                    <Button onClick={() => {
+                      setInFilter(channel)
+                      inputRef.current?.focus();
+                      setInputValue("");
+                    }} key={channel._id} variant="ghost" className="flex items-center justify-start gap-2 w-full">
+                      <IconHash size={20} />
+                      {channel.name}
+                    </Button>
+                  ))}
+                  {!filteredInChannels?.length && <p className="px-4 py-2 text-sm text-muted-foreground">No channels found.</p>}
+                </div>
+              </>}
           </div>
         );
       case Filter.HAS_ATTACHMENTS:
@@ -234,7 +341,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
           <div className="flex flex-col self-start gap-2 w-full px-2">
             {hasFilter ? <>
               <div className="flex items-center justify-between px-2">
-                <p>{filteredHasMessages.length} Results</p>
+                <p>{sortedHasMessages.length} Results</p>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="secondary">
@@ -242,15 +349,15 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                       Sort
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent>
-
+                  <PopoverContent align="end" className="max-w-38">
+                    <SortOptions />
                   </PopoverContent>
                 </Popover>
               </div>
               <Separator />
               <div className="flex flex-col">
-                {filteredHasMessages?.map((message) => (
-                  <Card key={message._id} className="relative group">
+                {sortedHasMessages?.map((message) => (
+                  <Card key={message._id} className="relative group py-0 pb-4 px-2">
                     <div className="hidden group-hover:flex items-center absolute top-2 right-2">
                       <Button
                         variant="outline"
@@ -261,42 +368,11 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                       </Button>
                     </div>
                     <CardContent className="w-full">
-                      <div className="flex items-start gap-2">
-                        <Avatar className="size-10" style={
-                          message.sentBy?.profilePicture === SHORT_LOGO_URL && message.sentBy?.profilePictureBannerColor
-                            ? { backgroundColor: message.sentBy.profilePictureBannerColor }
-                            : undefined
-                        }>
-                          <AvatarImage src={message.sentBy?.profilePicture} />
-                          <AvatarFallback>
-                            {getInitialsFallback(message.sentBy?.displayName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col items-start w-full">
-                          <div className="flex items-center gap-1">
-                            <p className="text-sm font-medium">{message.sentBy?.displayName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDate(message.createdAt?.toString(), "md")}
-                            </p>
-                          </div>
-                          {isValidUrl(message.message.content?.[0]?.content?.[0]?.text) ? <Link href={message.message.content?.[0]?.content?.[0]?.text ?? ""} target="_blank" className="text-url-link hover:underline cursor-pointer break-all text-sm">{message.message.content?.[0]?.content?.[0]?.text}</Link> :
-                            <p className="break-all text-sm">{message.message.content?.[0]?.content?.[0]?.text}</p>}
-                          {message.attachment && message.attachment.length > 0 && (
-                            <div className="mt-2 w-full">
-                              <AttachmentsGrid
-                                isAlert={true}
-                                messageId={message._id}
-                                attachments={message.attachment}
-                                sender={message.sentBy}
-                                messageSentAt={message.createdAt}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <Message className="p-0!" message={message} showHeader={true} isHovered={false} isHighlighted={false} channel={channel || undefined} onScrollToMessage={onScrollToMessage} contextMenuTriggerDisabled={true} messageCreatedAtFromatLength="sm" />
                     </CardContent>
                   </Card>
                 ))}
+                {!filteredHasMessages?.length && <p className="px-2 py-2 text-sm text-muted-foreground">No messages found.</p>}
               </div>
             </> : <>
               <p className="text-xs text-muted-foreground px-4 font-semibold">Message Contains</p>
@@ -322,7 +398,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
             {mentionsFilter ?
               <>
                 <div className="flex items-center justify-between px-2">
-                  <p>{filteredMentionsMessages.length} Results</p>
+                  <p>{sortedMentionsMessages.length} Results</p>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button size="sm" variant="secondary">
@@ -330,16 +406,16 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                         Sort
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent>
-
+                    <PopoverContent align="end" className="max-w-38">
+                      <SortOptions />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <Separator />
                 <ScrollArea className="h-60">
                   <div className="space-y-2">
-                    {filteredMentionsMessages.map((message) => (
-                      <Card key={message._id} className="relative group">
+                    {sortedMentionsMessages.map((message) => (
+                      <Card key={message._id} className="relative group py-0 pb-4 px-2">
                         <div className="hidden group-hover:flex items-center absolute top-2 right-2">
                           <Button
                             variant="outline"
@@ -350,37 +426,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                           </Button>
                         </div>
                         <CardContent>
-                          <div className="flex items-start gap-2">
-                            <Avatar className="size-10" style={
-                              message.sentBy?.profilePicture === SHORT_LOGO_URL && message.sentBy?.profilePictureBannerColor
-                                ? { backgroundColor: message.sentBy.profilePictureBannerColor }
-                                : undefined
-                            }>
-                              <AvatarImage src={message.sentBy?.profilePicture} />
-                              <AvatarFallback>
-                                {getInitialsFallback(message.sentBy?.displayName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col items-start">
-                              <div className="flex items-center gap-1">
-                                <p className="text-sm font-medium">{message.sentBy?.displayName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDate(message.createdAt?.toString(), "md")}
-                                </p>
-                              </div>
-                              {message.message.content?.[0]?.content?.map((msg, idx) => (
-                                <span key={idx} className="flex flex-col items-start">
-                                  {msg.type === "text" &&
-                                    isValidUrl(msg.text) ? <Link href={msg.text ?? ""} target="_blank" className="text-sm text-url-link hover:underline cursor-pointer">{msg.text}</Link> :
-                                    <p className="break-all text-sm">{msg.text}</p>}
-                                  {msg.type === "mention" && (
-                                    <p className="text-sm break-all bg-mention/60 hover:bg-mention px-1 text-mention-secondary font-semibold rounded no-underline cursor-pointer">{msg.attrs?.mentionSuggestionChar + msg.attrs?.label}</p>
-
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                          <Message className="p-0!" message={message} showHeader={true} isHovered={false} isHighlighted={false} channel={channel || undefined} onScrollToMessage={onScrollToMessage} contextMenuTriggerDisabled={true} messageCreatedAtFromatLength="sm" />
                         </CardContent>
                       </Card>
                     ))}
@@ -391,7 +437,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
               <>
                 <p className="text-xs text-muted-foreground px-4 font-semibold">Mentions User</p>
                 <div className="flex flex-col">
-                  {filteredUsers?.map((member) => (
+                  {filteredMentionUsers?.map((member) => (
                     <Button onClick={() => {
                       setMentionsFilter(member)
                       inputRef.current?.focus();
@@ -405,6 +451,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                       <span className="text-xs text-muted-foreground">{member.username}</span>
                     </Button>
                   ))}
+                  {!filteredMentionUsers?.length && <p className="px-4 py-2 text-sm text-muted-foreground">No users found.</p>}
                 </div>
               </>
             }
@@ -423,6 +470,13 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                 <p className="text-xs">from: user</p>
               </div>
             </Button>
+            {channel?.type === ChannelType.Server && <Button variant="ghost" className="flex items-center justify-start px-2!" size="xl" onClick={() => applyFilter(Filter.IN_SPECIFIC_CHANNEL)}>
+              <IconHash size={22} />
+              <div className="flex flex-col items-start leading-4">
+                <p className="text-foreground">Sent in specific channel</p>
+                <p className="text-xs">in: channel</p>
+              </div>
+            </Button>}
             <Button variant="ghost" className="flex items-center justify-start px-2!" size="xl" onClick={() => applyFilter(Filter.HAS_ATTACHMENTS)}>
               <IconPaperclip size={22} />
               <div className="flex flex-col items-start leading-4">
@@ -442,6 +496,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
       )
     }
   })();
+  const activeFilterValue = fromFilter?.displayName || hasFilter || mentionsFilter?.displayName || inFilter?.name;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -462,6 +517,10 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
                 e.stopPropagation();
                 applyFilter(null);
                 setFromFilter(null);
+                setInFilter(null);
+                setMentionsFilter(null);
+                setHasFilter(null);
+                setInputValue("");
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -470,7 +529,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
           )}
           {filter && (
             <span ref={badgeContainerRef} className="absolute left-2 top-1/2 z-10 -translate-y-1/2">
-              <Badge variant="secondary">{filter}: {fromFilter?.displayName} {hasFilter} {mentionsFilter?.displayName}</Badge>
+              <Badge variant="secondary">{activeFilterValue ? `${filter}: ${activeFilterValue}` : filter}</Badge>
             </span>
           )}
           <Input
@@ -478,7 +537,7 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Backspace" && filter && !fromFilter && !hasFilter && !mentionsFilter && inputValue.length === 0) {
+              if (e.key === "Backspace" && filter && !fromFilter && !hasFilter && !mentionsFilter && !inFilter && inputValue.length === 0) {
                 applyFilter(null);
               }
               if (e.key === "Backspace" && fromFilter && inputValue.length === 0) {
@@ -489,6 +548,9 @@ const SearchInput = memo(function SearchInput({ channel, messages, onScrollToMes
               }
               if (e.key === "Backspace" && mentionsFilter && inputValue.length === 0) {
                 setMentionsFilter(null);
+              }
+              if (e.key === "Backspace" && inFilter && inputValue.length === 0) {
+                setInFilter(null);
               }
             }}
             placeholder={!filter ? `Search ${truncatedName}` : undefined}

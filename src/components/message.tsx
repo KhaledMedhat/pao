@@ -31,7 +31,7 @@ import { IconCornerUpRight, IconCornerUpLeft, IconBorderCornerRounded, IconTrash
 import { Channel } from "~/interfaces/channels.interface";
 import { useAppDispatch, useAppSelector } from "~/redux/hooks";
 import { selectCurrentUserInfo } from "~/redux/slices/user/user-selector";
-import { formatDate, getInitialsFallback, isValidUrl, scrollToMessage } from "~/lib/utils";
+import { cn, formatDate, getInitialsFallback, isValidUrl, scrollToMessage } from "~/lib/utils";
 import MessageDetails from "./message-details";
 import { REACTION_EMOJIS, SHORT_LOGO_URL } from "~/constants/constants";
 import { EmojiPicker, EmojiPickerContent, EmojiPickerFooter, EmojiPickerSearch } from "./ui/emoji-picker";
@@ -61,13 +61,16 @@ interface MessageComponentProps {
     showHeader: boolean;
     isHovered: boolean;
     isHighlighted: boolean;
-    onHover: (messageId: string) => void;
-    onLeave: () => void;
+    onHover?: (messageId: string) => void;
+    onLeave?: () => void;
     channel: Channel | undefined;
     onScrollToMessage: (messageId: string) => void;
+    className?: string;
+    contextMenuTriggerDisabled: boolean;
+    messageCreatedAtFromatLength?: "lg" | "md" | "sm";
 }
 const Message = memo<MessageComponentProps>(
-    ({ channel, message, showHeader, isHovered, isHighlighted, onHover, onLeave, onScrollToMessage }) => {
+    ({ channel, message, showHeader, isHovered, isHighlighted, onHover, onLeave, onScrollToMessage, className, contextMenuTriggerDisabled, messageCreatedAtFromatLength }) => {
         const [deleteMessage] = useDeleteMessageMutation();
         const [pinMessage] = usePinMessageMutation();
         const [unpinMessage] = useUnpinMessageMutation();
@@ -119,12 +122,12 @@ const Message = memo<MessageComponentProps>(
         }, [isEditing]);
 
         const handleMouseEnter = useCallback(() => {
-            onHover(message._id);
+            onHover?.(message._id);
         }, [message._id, onHover]);
 
         const handleMouseLeave = useCallback(() => {
             if (!isDropdownOpen) {
-                onLeave();
+                onLeave?.();
             }
         }, [isDropdownOpen, onLeave]);
 
@@ -183,23 +186,25 @@ const Message = memo<MessageComponentProps>(
             <Dialog open={isForwardDialogOpen || isPinDialogOpen || isViewReactionsOpen} onOpenChange={handleDialogOpenChange}>
                 <AlertDialog open={isPinAlertDialogOpen || isDeleteAlertDialogOpen} onOpenChange={handleAlertDialogOpenChange}>
                     <Popover>
-                        <ContextMenu >
-                            <ContextMenuTrigger className="w-full">
+                        <ContextMenu>
+                            <ContextMenuTrigger disabled={contextMenuTriggerDisabled} className="w-full">
                                 <div
                                     id={message._id}
-                                    className={`group relative px-4 -mx-4 cursor-default transition-colors duration-75 ${message._id && isReplying && replyingToMessage?._id === message._id && "bg-accent/40 hover:bg-accent/40"
-                                        } ${isHovered && "bg-main"} ${showHeader && "mt-4"} ${message.type === MessageType.REPLY && "pt-1"} ${message.type === MessageType.SERVER_INVITATION && "pb-2"} ${isHighlighted && "animate-pulse bg-accent/30"}`}
+                                    className={cn(`group relative px-4 -mx-4 cursor-default transition-colors duration-75 ${message._id && isReplying && replyingToMessage?._id === message._id && "bg-accent/40 hover:bg-accent/40"
+                                        } ${isHovered && "bg-main"} ${showHeader && "mt-4"} ${message.type === MessageType.REPLY && "pt-1"} ${message.type === MessageType.SERVER_INVITATION && "pb-2"} ${isHighlighted && "animate-pulse bg-accent/30"}`, className)}
                                     onMouseEnter={handleMouseEnter}
                                     onMouseLeave={handleMouseLeave}
                                 >
                                     {message.type === MessageType.REPLY && message.replyMessageId && (
                                         <div className="pl-4 flex items-end">
-                                            <button
+                                            <Button
                                                 onClick={() => scrollToMessage(message.message.message.replyMessageId?._id || "", onScrollToMessage)}
-                                                className="cursor-pointer"
+                                                className="cursor-pointer p-0! m-0! h-fit w-fit text-muted-foreground hover:text-accent/40 hover:bg-transparent"
+                                                variant="ghost"
+                                                size="icon-sm"
                                             >
-                                                <IconBorderCornerRounded stroke={2} className="text-muted-foreground hover:text-accent/40" />
-                                            </button>
+                                                <IconBorderCornerRounded stroke={2} />
+                                            </Button>
                                             <div className="flex items-center gap-1">
                                                 <Avatar className="size-7 bg-muted" style={
                                                     message.replyMessageId?.sentBy?.profilePicture === SHORT_LOGO_URL && message.replyMessageId?.sentBy?.profilePictureBannerColor
@@ -211,8 +216,10 @@ const Message = memo<MessageComponentProps>(
                                                         {message.replyMessageId?.sentBy?.displayName?.charAt(0)}
                                                     </AvatarFallback>
                                                 </Avatar>
-                                                <button
-                                                    className="flex items-center gap-0.5 text-xs text-muted-foreground cursor-pointer"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    className="flex items-center gap-0.5 text-xs hover:text-muted-foreground hover:bg-transparent cursor-pointer p-0! m-0! h-fit w-fit"
                                                     onClick={() => scrollToMessage(message.replyMessageId?._id || "", onScrollToMessage)}
                                                 >
                                                     {message.replyMessageId.message.content?.[0]?.content?.map((msg, idx) => (
@@ -226,7 +233,7 @@ const Message = memo<MessageComponentProps>(
                                                             )}
                                                         </span>
                                                     ))}
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
@@ -378,7 +385,7 @@ const Message = memo<MessageComponentProps>(
                                                             </PopoverTrigger>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <span className="text-xs text-muted-foreground">{formatDate(message.createdAt?.toString(), "md")}</span>
+                                                                    <span className="text-xs text-muted-foreground">{formatDate(message.createdAt?.toString(), messageCreatedAtFromatLength || "md")}</span>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>{formatDate(message.createdAt?.toString(), "lg")}</TooltipContent>
                                                             </Tooltip>
@@ -393,7 +400,7 @@ const Message = memo<MessageComponentProps>(
                                                                 msg.type === "link" &&
                                                                 <Button disabled={isJoiningServer} onClick={handleJoinServer} key={msg.text} variant="link" className="text-sm text-accent/40 p-0 h-fit">{msg.text}</Button>
                                                             ))}
-                                                            <Card className="w-xs p-0">
+                                                            <Card className="max-w-xs w-full p-0">
                                                                 <CardContent className="p-0">
                                                                     <div className="relative w-full">
                                                                         <div className="h-30 w-full bg-cover-placeholder rounded-t-xl"></div>
@@ -483,6 +490,7 @@ const Message = memo<MessageComponentProps>(
                                                                         attachments={message.attachment}
                                                                         sender={message.sentBy}
                                                                         messageSentAt={message.createdAt}
+                                                                        isAlert={contextMenuTriggerDisabled ? true : false}
                                                                     />
                                                                 </div>
                                                             )}
@@ -532,7 +540,7 @@ const Message = memo<MessageComponentProps>(
                                                     {(message.type === MessageType.TEXT || message.type === MessageType.REPLY || message.type === MessageType.FORWARD) && <Tooltip>
                                                         <DialogTrigger asChild>
                                                             <TooltipTrigger asChild>
-                                                                <Button variant="ghost" size="icon-sm">
+                                                                <Button variant="ghost" size="icon-sm" onClick={() => setIsForwardDialogOpen(true)}>
                                                                     <IconCornerUpRight size={20} color="var(--muted-foreground)" />
                                                                 </Button>
                                                             </TooltipTrigger>
@@ -610,7 +618,7 @@ const Message = memo<MessageComponentProps>(
                                                                 </DropdownMenuItem>
                                                                 {(message.type === MessageType.TEXT || message.type === MessageType.REPLY || message.type === MessageType.FORWARD) &&
                                                                     <DialogTrigger asChild>
-                                                                        <DropdownMenuItem className="justify-between">
+                                                                        <DropdownMenuItem className="justify-between" onClick={() => setIsForwardDialogOpen(true)}>
                                                                             Forward
                                                                             <IconCornerUpRight size={18} color="var(--muted-foreground)" />
                                                                         </DropdownMenuItem>

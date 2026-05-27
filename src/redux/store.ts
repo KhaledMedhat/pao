@@ -8,6 +8,7 @@ import userReducer from "./slices/user/user-slice";
 // import channelReducer from "./slices/channels/channels-slice";
 import { channelApi } from "./apis/channel.api";
 import appReducer from "./slices/app/app-slice";
+import callSlice from "./slices/call/call-slice";
 // import { messageRoute } from "../routes/messageRoute";
 // import callSlice from "../slices/call/callSlice";
 
@@ -45,12 +46,12 @@ const channelPersistConfig = {
   key: "channels",
 };
 
-// const callPersistConfig = {
-//   ...persistConfig,
-//   key: "call",
-//   // Exclude callConsumers from persistence since it contains non-serializable objects
-//   blacklist: ["callConsumers"],
-// };
+const callPersistConfig = {
+  ...persistConfig,
+  key: "call",
+  // Exclude callConsumers from persistence since it contains non-serializable objects
+  blacklist: ["callConsumers"],
+};
 
 const appPersistConfig = {
   ...persistConfig,
@@ -60,7 +61,7 @@ const appPersistConfig = {
 // Create persisted reducers
 const persistedUserReducer = persistReducer(userPersistConfig, userReducer);
 const persistedAppReducer = persistReducer(appPersistConfig, appReducer);
-// const persistedCallReducer = persistReducer(callPersistConfig, callSlice);
+const persistedCallReducer = persistReducer(callPersistConfig, callSlice);
 // const persistedChannelReducer = persistReducer(channelPersistConfig, channelReducer);
 
 export const store = configureStore({
@@ -70,7 +71,7 @@ export const store = configureStore({
     [userApi.reducerPath]: userApi.reducer,
     [channelApi.reducerPath]: channelApi.reducer,
     // [messageRoute.reducerPath]: messageRoute.reducer,
-    // call: persistedCallReducer,
+    call: persistedCallReducer,
     user: persistedUserReducer,
     app: persistedAppReducer,
     // channels: persistedChannelReducer,
@@ -79,6 +80,17 @@ export const store = configureStore({
 
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
+      immutableCheck: {
+        // Keep mutation safety checks in dev, but skip large state branches.
+        warnAfter: 128,
+        ignoredPaths: [
+          "user",
+          "app",
+          authApi.reducerPath,
+          userApi.reducerPath,
+          channelApi.reducerPath,
+        ],
+      },
       serializableCheck: {
         // Ignore these action types
         ignoredActions: [

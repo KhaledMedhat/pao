@@ -74,20 +74,25 @@ export const userSlice = createSlice({
     setUserInfo: (state, action: PayloadAction<User>) => {
       state.userInfo = action.payload;
     },
-    setUpdatedFriend: (state, action: PayloadAction<{ friend: FriendInterface; updatedUser: any }>) => {
-      const { friend, updatedUser } = action.payload;
-      const friendId = friend._id;
+    setUpdatedUserEverywhere: (state, action: PayloadAction<{ userId: string; updatedUser: any }>) => {
+      const { userId, updatedUser } = action.payload;
 
-      state.userInfo.friends = state.userInfo.friends.map((f) => (f._id === friendId ? { ...f, ...updatedUser } : f));
+      state.userInfo.friends = state.userInfo.friends.map((f) => (f._id === userId ? { ...f, ...updatedUser } : f));
 
       state.channelsInfo = state.channelsInfo.map((channel) => ({
         ...channel,
-        members: channel.members.map((m) => (m._id === friendId ? { ...m, ...updatedUser } : m)),
+        members: channel.members.map((m) => (m._id === userId ? { ...m, ...updatedUser } : m)),
         directChannelOtherMember:
-          channel.directChannelOtherMember?._id === friendId
+          channel.directChannelOtherMember?._id === userId
             ? { ...channel.directChannelOtherMember, ...updatedUser }
             : channel.directChannelOtherMember,
       }));
+    },
+    addFriend: (state, action: PayloadAction<FriendInterface>) => {
+      state.userInfo.friends.push(action.payload);
+    },
+    removeFriend: (state, action: PayloadAction<string>) => {
+      state.userInfo.friends = state.userInfo.friends.filter((f) => f._id !== action.payload);
     },
     setChannelListActive: (state, action: PayloadAction<{ channelId: string; listActive: boolean }>) => {
       state.channelsInfo = state.channelsInfo.map((channel) =>
@@ -210,18 +215,26 @@ export const userSlice = createSlice({
     setGroupNewOwnership: (state, action: PayloadAction<{ channelId: string, newOwner: string }>) => {
       state.channelsInfo = state.channelsInfo.map((channel) => (channel._id === action.payload.channelId ? { ...channel, createdBy: action.payload.newOwner } : channel));
     },
+    adjustNotificationCount: (state, action: PayloadAction<{ channelId: string, notificationsCount: number }>) => {
+      state.channelsInfo = state.channelsInfo.map((channel) =>
+        channel._id === action.payload.channelId
+          ? { ...channel, notificationsCount: action.payload.notificationsCount > 0 ? action.payload.notificationsCount : 0 }
+          : channel
+      );
+    },
   },
 });
 
 export const {
   setUserLoggingInStatus,
   setUserInfo,
-  setUpdatedFriend,
+  setUpdatedUserEverywhere,
   setChannels,
   updateChannel,
   setFriendRequests,
   addFriendRequest,
   removeFriendRequest,
+  addFriend,
   setChannelActiveList,
   addChannel,
   addNotification,
@@ -232,5 +245,7 @@ export const {
   removeMemberFromChannel,
   removeChannelFromList,
   setGroupNewOwnership,
+  removeFriend,
+  adjustNotificationCount,
 } = userSlice.actions;
 export default userSlice.reducer;

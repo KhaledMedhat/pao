@@ -40,6 +40,7 @@ export interface Channel {
   members: FriendInterface[];
   directChannelOtherMember?: FriendInterface;
   listActive?: boolean;
+  notificationsCount?: number;
   updatedAt?: Date;
   type: ChannelType;
   createdBy: string;
@@ -48,8 +49,14 @@ export interface Channel {
   pinnedMessages?: MessageInterface[];
   createdAt: string;
   serverInvitationLink?: { link: string, id: string };
-  channelMessageRooms?: { _id: string, name: string, type?: string }[]
+  channelMessageRooms?: ChannelMessageRoom[]
   channelCallRooms?: { _id: string, name: string }[]
+}
+
+export interface ChannelMessageRoom {
+  _id: string;
+  name: string;
+  type?: string;
 }
 
 export interface ChannelInitialState {
@@ -71,4 +78,10 @@ export interface ChannelDisplayData {
 export enum ServerChannelType {
   Text = "Text",
   Voice = "Voice",
+}
+
+
+export enum ChannelAction {
+  Leave = "Leave",
+  Delete = "Delete",
 }

@@ -23,4 +23,21 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
   );
 }
 
-export { Checkbox };
+function RoundedCheckbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+  return (
+    <CheckboxPrimitive.Root
+      data-slot="rounded-checkbox"
+      className={cn(
+        "cursor-pointer peer bg-muted border-muted-foreground/70 dark:bg-muted data-[state=checked]:bg-accent/40 data-[state=checked]:text-foreground dark:data-[state=checked]:bg-accent/40 data-[state=checked]:border-accent/40 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-5.5 shrink-0 rounded-full border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      <CheckboxPrimitive.Indicator data-slot="rounded-checkbox-indicator" className="grid place-content-center text-current transition-none">
+        <IconCheck className="size-3.5" />
+      </CheckboxPrimitive.Indicator>
+    </CheckboxPrimitive.Root>
+  );
+}
+
+export { Checkbox, RoundedCheckbox };

@@ -16,16 +16,20 @@ import {
 } from "~/interfaces/user.interface";
 import {
   addChannel,
+  addFriend,
   addFriendRequest,
   addMembersToChannel,
   addNotification,
   addServerChannel,
+  adjustNotificationCount,
   removeChannelFromList,
+  removeFriend,
+  removeFriendRequest,
   removeMemberFromChannel,
   setChannels,
   setFriendRequests,
   setGroupNewOwnership,
-  setUpdatedFriend,
+  setUpdatedUserEverywhere,
   setUserInfo,
   setUserLoggingInStatus,
   updateChannel,
@@ -34,7 +38,7 @@ import {
 import { Channel, ChannelType, ServerChannelType } from "~/interfaces/channels.interface";
 import { socketService } from "~/lib/socket";
 import { getDirectMessageChannelOtherMember } from "~/lib/utils";
-import { PinnedMessageInterface } from "~/interfaces/message.interface";
+import { MessageInterface, PinnedMessageInterface } from "~/interfaces/message.interface";
 import { setAddedToChannel, setIsGettingAddedToChannel, setIsGettingRemovedFromChannel, setRemovedFromChannel } from "../slices/app/app-slice";
 
 function isHydrateAction(action: Action): action is PayloadAction<RootState> {
@@ -119,14 +123,14 @@ export const authApi = createApi({
         try {
           const { data } = await queryFulfilled;
           // Add listActive: true to each member in channels
-          const channelsWithListActiveAndExtractedOtherMember = data.channels.map((channel) => ({
+          const channelsWithExtraProps = data.channels.map((channel) => ({
             ...channel,
             listActive: channel.type === ChannelType.Direct ? true : undefined,
             directChannelOtherMember: channel.type === ChannelType.Direct ? getDirectMessageChannelOtherMember(channel, data.user._id) : undefined,
           }));
           dispatch(setUserLoggingInStatus(true));
           dispatch(setUserInfo(data.user));
-          dispatch(setChannels(channelsWithListActiveAndExtractedOtherMember));
+          dispatch(setChannels(channelsWithExtraProps));
           // dispatch(setNotifications(data.notifications));
           dispatch(setFriendRequests(data.friendRequests));
         } catch {
@@ -145,10 +149,7 @@ export const authApi = createApi({
               dispatch(setUserInfo({ ...currentUser, ...data.updatedUser }));
             }
 
-            const friend = currentUser.friends.find((f) => f._id === data.userId);
-            if (friend) {
-              dispatch(setUpdatedFriend({ friend, updatedUser: data.updatedUser }));
-            }
+            dispatch(setUpdatedUserEverywhere({ userId: data.userId, updatedUser: data.updatedUser }));
           };
           const handleFriendRequest = (data: { friendRequest: FriendRequest }) => {
             dispatch(addFriendRequest(data.friendRequest));
@@ -163,15 +164,19 @@ export const authApi = createApi({
                 data.channel.type === ChannelType.Direct ? getDirectMessageChannelOtherMember(data.channel, currentUserId) : undefined,
             };
             dispatch(addChannel(channelWithExtras));
+            dispatch(addFriend(getDirectMessageChannelOtherMember(data.channel, currentUserId)));
           };
 
           const handleNewGroupChannelCreation = (data: { groupChannel: Channel }) => {
-
             dispatch(addChannel(data.groupChannel));
           };
           const handleFriendRequestAcceptanceForNotification = (data: { notification: Notification }) => {
             dispatch(addNotification(data.notification));
           };
+
+          const handleInvertedFriendRequestDeletion = (data: { invertedRequestId: string }) => {
+            dispatch(removeFriendRequest(data.invertedRequestId));
+          }
 
           const handleServerChannelCreation = (data: { channelId: string, channelType: ServerChannelType, newChannel: { name: string, _id: string } }) => {
             dispatch(addServerChannel({ channelId: data.channelId, channelType: data.channelType, newChannel: data.newChannel }));
@@ -196,6 +201,9 @@ export const authApi = createApi({
             dispatch(updateChannel(channelWithExtras));
           };
 
+          const handleRemoveFriend = (data: { removerUserId: string }) => {
+            dispatch(removeFriend(data.removerUserId));
+          };
           const handleServerJoin = (data: { serverChannel: Channel }) => {
             dispatch(addChannel(data.serverChannel));
           };
@@ -220,6 +228,10 @@ export const authApi = createApi({
             dispatch(setIsGettingRemovedFromChannel(true));
           };
 
+          const handleDeleteChannel = (data: { channelId: string }) => {
+            dispatch(removeChannelFromList(data.channelId));
+          };
+
           const handleGetAddedToChannel = (data: { channel: Channel }) => {
             dispatch(setAddedToChannel(data.channel));
             dispatch(addChannel(data.channel));
@@ -234,6 +246,21 @@ export const authApi = createApi({
             dispatch(setGroupNewOwnership({ channelId: data.channelId, newOwner: data.newOwner }));
           };
 
+          const handleNewMessageNotification = (data: { message: MessageInterface }) => {
+            const state = getState() as RootState;
+            const activeChannelId = state.app.currentChannelId;
+            const messageChannelId = data.message.referenceId;
+            const currentUserId = state.user.userInfo._id;
+            if (data.message.sentBy?._id === currentUserId) return;
+            if (messageChannelId === activeChannelId) return;
+            socket?.emit("addNotificationCount", { channelId: messageChannelId, count: 1 });
+          };
+
+          const handleAdjustNotificationCount = (data: { channelId: string, notificationsCount: number }) => {
+            dispatch(adjustNotificationCount({ channelId: data.channelId, notificationsCount: data.notificationsCount }));
+          };
+
+          socket?.on("getNewMessage", handleNewMessageNotification);
           socket?.on("friendRequest", handleFriendRequest);
           socket?.on("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
           socket?.on("friendRequestAcceptanceNotification", handleFriendRequestAcceptanceForNotification);
@@ -252,6 +279,10 @@ export const authApi = createApi({
           socket?.on("getAddedToChannel", handleGetAddedToChannel);
           socket?.on("memberAddedToChannel", handleAddMemberToChannel);
           socket?.on("newGroupOwnershipAssigning", handleAssignGroupNewOwnership);
+          socket?.on("deleteChannel", handleDeleteChannel);
+          socket?.on("existedInvertedRequestDeletion", handleInvertedFriendRequestDeletion);
+          socket?.on("removeFriend", handleRemoveFriend);
+          socket?.on("notificationCountUpdated", handleAdjustNotificationCount);
           await cacheEntryRemoved;
           socket?.off("friendRequest", handleFriendRequest);
           socket?.off("friendRequestAcceptanceChannelCreation", handleFriendRequestAcceptanceForChannel);
@@ -271,6 +302,11 @@ export const authApi = createApi({
           socket?.off("getAddedToChannel", handleGetAddedToChannel);
           socket?.off("memberAddedToChannel", handleAddMemberToChannel);
           socket?.off("newGroupOwnershipAssigning", handleAssignGroupNewOwnership);
+          socket?.off("deleteChannel", handleDeleteChannel);
+          socket?.off("existedInvertedRequestDeletion", handleInvertedFriendRequestDeletion);
+          socket?.off("removeFriend", handleRemoveFriend);
+          socket?.off("notificationCountUpdated", handleAdjustNotificationCount);
+          socket?.off("getNewMessage", handleNewMessageNotification);
         } catch (error) {
           console.error("Socket cache entry error:", error);
         }

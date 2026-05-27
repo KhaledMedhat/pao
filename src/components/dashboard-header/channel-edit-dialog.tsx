@@ -51,7 +51,7 @@ const ChannelEditDialog = memo(function ChannelEditDialog({
   const editGroupForm = useForm<EditGroupValues>({
     resolver: zodResolver(editGroupSchema),
     defaultValues: {
-      groupName: "",
+      groupName: channel?.groupOrServerName || "",
       groupLogo: undefined,
     },
   });

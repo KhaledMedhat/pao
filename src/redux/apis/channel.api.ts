@@ -23,9 +23,9 @@ export const channelApi = createApi({
         dispatch(authApi.util.invalidateTags(["Auth"]));
       },
     }),
-    leaveGroupChannel: builder.mutation<void, string>({
+    leaveChannel: builder.mutation<void, string>({
       query: (channelId) => ({
-        url: `/channels/leave-group-channel/${channelId}`,
+        url: `/channels/leave-channel/${channelId}`,
         method: "PATCH",
       }),
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
@@ -103,6 +103,14 @@ export const channelApi = createApi({
         method: "POST",
       }),
     }),
+
+    joinServerViaInvitationLink: builder.mutation<Channel, { invitationLink: string }>({
+      query: (args) => ({
+        url: `/channels/join-server-via-invitation-link`,
+        method: "POST",
+        body: args,
+      }),
+    }),
     addGroupChannelMembers: builder.mutation<void, { channelId: string; data: { memberToAdd: string, addedBy: string } }>({
       query: (args) => ({
         url: `/channels/add-member-to-group/${args.channelId}`,
@@ -134,12 +142,19 @@ export const channelApi = createApi({
       }),
     }),
 
+    deleteChannel: builder.mutation<void, string>({
+      query: (channelId) => ({
+        url: `/channels/delete-channel/${channelId}`,
+        method: "DELETE",
+      }),
+    }),
+
   }),
 });
 
 export const {
   useCreateChannelMutation,
-  useLeaveGroupChannelMutation,
+  useLeaveChannelMutation,
   useGetChannelMessagesQuery,
   useLazyGetChannelMessagesQuery,
   useUpdateChannelMutation,
@@ -155,4 +170,6 @@ export const {
   useCreateServerChannelMutation,
   useRemoveGroupChannelMembersMutation,
   useAssignGroupNewOwnershipMutation,
+  useDeleteChannelMutation,
+  useJoinServerViaInvitationLinkMutation,
 } = channelApi;
